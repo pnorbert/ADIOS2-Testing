@@ -1,0 +1,9 @@
+{
+    "input1D": "input/decomp_N256_128_1D.in",
+    "input3D": "input/decomp_N256_128_3D.in",
+    "couplingMode": "MPI",
+    "steps": 10,
+    "streamName": "warpx.bp",
+    "adios_config": "adios2.xml",
+    "readDecomp3D": [ 2, 3, 1]
+}

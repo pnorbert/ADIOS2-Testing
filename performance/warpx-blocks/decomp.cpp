@@ -59,14 +59,12 @@ std::string Decomp::BroadcastFile(const std::string &fileName, MPI_Comm comm) co
         std::ostringstream fileSS;
         fileSS << fileStream.rdbuf();
         fileStream.close();
-        std::string fileContent = fileSS.str();
+        fileContent = fileSS.str();
         length = fileContent.size();
-        std::cout << "Length of " << fileName << " is " << length  << std::endl;
-        std::cout << "Start: [" << fileContent.substr(0,20) << "]" << std::endl;
+        //std::cout << "Length of " << fileName << " is " << length  << std::endl;
+        //std::cout << "Start: [" << fileContent.substr(0,20) << "]" << std::endl;
     }
-    std::cout << "Length of " << fileName << " is " << fileContent.size()  << std::endl;
-    std::cout << "Start: [" << fileContent.substr(0,20) << "]" << std::endl;
-
+    
     if (nproc > 1)
     {
         MPI_Bcast(&length, 1, MPI_INT, 0, comm);
@@ -80,22 +78,19 @@ std::string Decomp::BroadcastFile(const std::string &fileName, MPI_Comm comm) co
 }
 
 /* Process decomp_1D.in */
-void Decomp::ReadDecomp1D(const std::string &fileContent) 
+void Decomp::ProcessDecomp1D(const std::string &fileContent) 
 {
     std::string line;   
-    std::cout << "Length of file is " << fileContent.size()  << std::endl;
-    std::cout << "Start: [" << fileContent.substr(0,20) << "]" << std::endl;
     std::istringstream fin(fileContent);
 
     // Shape
     getline(fin,line);
-    std::cout << "rank " << rank << " line 1: " << line << std::endl;
     std::vector<std::string> v(4);
     split(line, ' ', v);
 
     if (v[0] != "Shape")
     {
-        throw std::runtime_error("First non-comment line of decomp_1D.in must be Shape ");
+        throw std::runtime_error("First non-comment line of 1D decomp file must be Shape ");
     }
     shape1D = std::stol(v[1]);
     
@@ -104,7 +99,7 @@ void Decomp::ReadDecomp1D(const std::string &fileContent)
     split(line, ' ', v);
     if (v[0] != "Blocks")
     {
-        throw std::runtime_error("Second non-comment line of decomp_1D.in must be Blocks ");
+        throw std::runtime_error("Second non-comment line of 1D decomp file must be Blocks ");
     }
     nblocks1D = std::stol(v[1]);
     
@@ -123,18 +118,18 @@ void Decomp::ReadDecomp1D(const std::string &fileContent)
         ++blockID;
     }
 
-    std::cout << "decomp_1D.in: Shape = " << shape1D 
-              << "  nBlocks = " << nblocks1D 
-              << "  found = " << blockID
-              << std::endl;
-
+    if (!rank) {
+      std::cout << "decomp 1D: Shape = " << shape1D
+                << "  nBlocks = " << nblocks1D << "  found = " << blockID
+                << std::endl;
+    }
 }
 
 /* Process decomp_3D.in */
-void Decomp::ReadDecomp3D(const std::string &fileContent)
+void Decomp::ProcessDecomp3D(const std::string &fileContent)
 {
     std::string line;  
-    int maxWriterID = 0;
+    size_t maxWriterID = 0;
     std::istringstream fin(fileContent);
 
     // Shape
@@ -143,7 +138,7 @@ void Decomp::ReadDecomp3D(const std::string &fileContent)
     split(line, ' ', v);
     if (v[0] != "Shape")
     {
-        throw std::runtime_error("First non-comment line of decomp_3D.in must be Shape ");
+        throw std::runtime_error("First non-comment line of 3D decomp file must be Shape ");
     }
     shape3D[0] = std::stol(v[1]);
     shape3D[1] = std::stol(v[2]);
@@ -154,7 +149,7 @@ void Decomp::ReadDecomp3D(const std::string &fileContent)
     split(line, ' ', v);
     if (v[0] != "Blocks")
     {
-        throw std::runtime_error("Second non-comment line of decomp_3D.in must be Blocks ");
+        throw std::runtime_error("Second non-comment line of 3D decomp file must be Blocks ");
     }
     nblocks3D = std::stol(v[1]);
     
@@ -182,19 +177,20 @@ void Decomp::ReadDecomp3D(const std::string &fileContent)
     }
 
     nWriters = maxWriterID + 1;
-    std::cout << "decomp_3D.in: Shape = {" << shape3D[0]
-              << " x " << shape3D[1] << " x " << shape3D[2] << "}"
-              << "  nBlocks = " << nblocks3D
-              << "  found = " << blockID
-              << std::endl;
-    std::cout << "nWriters = " << nWriters << std::endl;
+    if (!rank) {
+      std::cout << "decomp 3D: Shape = {" << shape3D[0] << " x " << shape3D[1]
+                << " x " << shape3D[2] << "}"
+                << "  nBlocks = " << nblocks3D << "  found = " << blockID
+                << std::endl;
+      std::cout << "nWriters = " << nWriters << std::endl;
+    }
 }
 
 void Decomp::DecomposeWriters()
 {
-    size_t ne = nWriters / nproc;
-    size_t minWriterID = rank * ne;
-    size_t rem = nWriters % nproc;
+    int ne = nWriters / nproc;
+    minWriterID = rank * ne;
+    int rem = nWriters % nproc;
     if (rank < rem) 
     {
         ++ne;
@@ -210,17 +206,15 @@ void Decomp::DecomposeWriters()
               << std::endl;
 }
 
-Decomp::Decomp(MPI_Comm comm) : comm(comm)
+Decomp::Decomp(const std::string &inputfile1D, const std::string &inputfile3D, MPI_Comm comm) : comm(comm)
 {
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
 
-    std::string f1d = BroadcastFile("decomp_1D.in", comm);
-    std::cout << "Length of file is " << f1d.size()  << std::endl;
-    std::cout << "Start: [" << f1d.substr(0,20) << "]" << std::endl;
-    ReadDecomp1D(f1d);
-    std::string f3d = BroadcastFile("decomp_3D.in", comm);
-    ReadDecomp3D(f3d);
+    std::string f1d = BroadcastFile(inputfile1D, comm);
+    ProcessDecomp1D(f1d);
+    std::string f3d = BroadcastFile(inputfile3D, comm);
+    ProcessDecomp3D(f3d);
     DecomposeWriters();
 }
 

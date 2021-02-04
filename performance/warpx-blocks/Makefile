@@ -3,29 +3,30 @@ ADIOS2_DIR=/opt/adios2
 
 # Set the MPI compilers if available
 MPICXX=mpicxx
-CXXFLAGS=-g -std=c++11
+CXXFLAGS=-g -std=c++11 -Wall
 
 ######################################################
 #  These settings below should not need to be edited #
 ######################################################
 
-CXX_MPI_FLAGS=`${ADIOS2_DIR}/bin/adios2-config --cxx-flags -m`
-CXX_MPI_LDFLAGS=`${ADIOS2_DIR}/bin/adios2-config --cxx-libs -m`
-
+CXX_MPI_FLAGS:=`${ADIOS2_DIR}/bin/adios2-config --cxx-flags -m`
+CXX_MPI_LDFLAGS:=`${ADIOS2_DIR}/bin/adios2-config --cxx-libs -m`
+ 
+.PHONY: clean all default
 all: warpx-writer
 default: all
 
-warpx-writer: decomp.o warpx-writer.o
-	${MPICXX} -o warpx-writer ${CXXFLAGS} ${CXX_MPI_FLAGS} decomp.o warpx-writer.o ${CXX_MPI_LDFLAGS}
+warpx-writer: decomp.o settings.o warpx-writer.o
+	${MPICXX} -o $@ ${CXXFLAGS} ${CXX_MPI_FLAGS} $+ ${CXX_MPI_LDFLAGS}
 
-warpx-writer.o: decomp.o warpx-writer.cpp
-	${MPICXX} -c ${CXXFLAGS} ${CXX_MPI_FLAGS} warpx-writer.cpp 
+warpx-reader: decomp.o settings.o warpx-reader.o
+	${MPICXX} -o $@ ${CXXFLAGS} ${CXX_MPI_FLAGS} $+ ${CXX_MPI_LDFLAGS}
 
-decomp.o: decomp.cpp 
-	${MPICXX} -c ${CXXFLAGS} ${CXX_MPI_FLAGS} decomp.cpp 
+%.o: %.cpp
+	${MPICXX} -c ${CXXFLAGS} ${CXX_MPI_FLAGS} $+
 
 
 clean:
-	rm -rf warpx-writer
+	rm -rf warpx-writer warpx-reader
 	rm -rf *.o 
 	rm -rf *.bp *.sst *.ssc

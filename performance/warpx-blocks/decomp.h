@@ -22,7 +22,7 @@ class Decomp
 {
 public:
 
-    Decomp(MPI_Comm comm);
+    Decomp(const std::string &inputfile1D, const std::string &inputfile3D, MPI_Comm comm);
     ~Decomp();
     
     size_t shape1D;
@@ -44,8 +44,8 @@ private:
     const MPI_Comm comm;
     int rank, nproc;
     std::string BroadcastFile(const std::string &fileName, MPI_Comm comm) const;
-    void ReadDecomp1D(const std::string &fileContent);
-    void ReadDecomp3D(const std::string &fileContent);
+    void ProcessDecomp1D(const std::string &fileContent);
+    void ProcessDecomp3D(const std::string &fileContent);
     void DecomposeWriters();
 };
 

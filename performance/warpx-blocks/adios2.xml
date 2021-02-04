@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<adios-config>
+    <io name="WarpX">
+        <engine type="FileStream">
+            <!-- SST engine parameters -->
+            <parameter key="RendezvousReaderCount" value="0"/>
+            <parameter key="QueueLimit" value="1"/>
+            <parameter key="QueueFullPolicy" value="Discard"/>
+            <!-- FileStream engine parameters -->
+            <parameter key="AggregatorRatio" value="1"/>
+        </engine>
+    </io>
+</adios-config>
+

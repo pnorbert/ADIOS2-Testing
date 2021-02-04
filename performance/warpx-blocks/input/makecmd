@@ -1,0 +1,10 @@
+#!/bin/bash
+
+ADIOS2_DIR=/ccs/proj/e2e/pnorbert/ADIOS/ADIOS2/build.summit.master.gcc/install
+CXX=g++
+CXX_FLAGS=`${ADIOS2_DIR}/bin/adios2-config --cxx-flags -s`
+CXX_LDFLAGS=`${ADIOS2_DIR}/bin/adios2-config --cxx-libs -s`
+
+
+${CXX} -o listblocks ${CXX_FLAGS} listblocks.cpp ${CXX_LDFLAGS}
+
