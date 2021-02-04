@@ -1,0 +1,18 @@
+  double    /data/800/fields/B/x                      {1024, 1024, 1024}
+  double    /data/800/fields/B/y                      {1024, 1024, 1024}
+  double    /data/800/fields/B/z                      {1024, 1024, 1024}
+  double    /data/800/fields/E/x                      {1024, 1024, 1024}
+  double    /data/800/fields/E/y                      {1024, 1024, 1024}
+  double    /data/800/fields/E/z                      {1024, 1024, 1024}
+  double    /data/800/fields/j/x                      {1024, 1024, 1024}
+  double    /data/800/fields/j/y                      {1024, 1024, 1024}
+  double    /data/800/fields/j/z                      {1024, 1024, 1024}
+  double    /data/800/fields/rho                      {1024, 1024, 1024}
+  uint64_t  /data/800/particles/electrons/id          {210236048}
+  double    /data/800/particles/electrons/momentum/x  {210236048}
+  double    /data/800/particles/electrons/momentum/y  {210236048}
+  double    /data/800/particles/electrons/momentum/z  {210236048}
+  double    /data/800/particles/electrons/position/x  {210236048}
+  double    /data/800/particles/electrons/position/y  {210236048}
+  double    /data/800/particles/electrons/position/z  {210236048}
+  double    /data/800/particles/electrons/weighting   {210236048}
