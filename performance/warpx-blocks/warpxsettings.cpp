@@ -1,11 +1,11 @@
-#include "settings.h"
+#include "warpxsettings.h"
 
 #include <fstream>
 #include <iostream>
 
 #include "json.hpp"
 
-void to_json(nlohmann::json &j, const Settings &s)
+void to_json(nlohmann::json &j, const WarpxSettings &s)
 {
     std::string cpl;
     if (s.cplMode == CouplingMode::MPI)
@@ -16,18 +16,18 @@ void to_json(nlohmann::json &j, const Settings &s)
     {
         cpl = "ADIOS";
     }
-    
+
     j = nlohmann::json{{"couplingMode", cpl},
                        {"steps", s.steps},
                        {"input1D", s.inputfile1D},
                        {"input3D", s.inputfile3D},
                        {"streamName", s.streamName},
                        {"adios_config", s.adios_config},
-                       {"readDecomp3D", s.readDecomp3D}
-                      };
+                       {"readDecomp3D", s.readDecomp3D},
+                       {"readerDump", s.readerDump}};
 }
 
-void from_json(const nlohmann::json &j, Settings &s)
+void from_json(const nlohmann::json &j, WarpxSettings &s)
 {
     std::string cpl;
     j.at("couplingMode").get_to(cpl);
@@ -37,6 +37,7 @@ void from_json(const nlohmann::json &j, Settings &s)
     j.at("streamName").get_to(s.streamName);
     j.at("adios_config").get_to(s.adios_config);
     j.at("readDecomp3D").get_to(s.readDecomp3D);
+    j.at("readerDump").get_to(s.readerDump);
 
     std::string modestr = cpl;
     std::transform(modestr.begin(), modestr.end(), modestr.begin(), ::tolower);
@@ -50,22 +51,20 @@ void from_json(const nlohmann::json &j, Settings &s)
     }
     else
     {
-        std::cout << "Invalid couplingMode argument:" << cpl 
-                  << ". Reverting to MPI mode..."
-                  << std::endl;
+        std::cout << "Invalid couplingMode argument:" << cpl
+                  << ". Reverting to MPI mode..." << std::endl;
         s.cplMode = CouplingMode::MPI;
     }
 }
 
-Settings::Settings(){}
+WarpxSettings::WarpxSettings() {}
 
-
-Settings Settings::from_json(const std::string &fname)
+WarpxSettings WarpxSettings::from_json(const std::string &fname)
 {
     std::ifstream ifs(fname);
     nlohmann::json j;
 
     ifs >> j;
 
-    return j.get<Settings>();
+    return j.get<WarpxSettings>();
 }

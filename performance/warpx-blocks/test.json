@@ -1,0 +1,10 @@
+{
+    "input1D": "input/decomp_test_8blocks_1D.in",
+    "input3D": "input/decomp_test_8blocks_3D.in",
+    "couplingMode": "ADIOS",
+    "steps": 2,
+    "streamName": "warpx.bp",
+    "adios_config": "adios2.xml",
+    "readDecomp3D": [ 1, 1, 1],
+    "readerDump": true
+}

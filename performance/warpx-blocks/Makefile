@@ -13,13 +13,13 @@ CXX_MPI_FLAGS:=`${ADIOS2_DIR}/bin/adios2-config --cxx-flags -m`
 CXX_MPI_LDFLAGS:=`${ADIOS2_DIR}/bin/adios2-config --cxx-libs -m`
  
 .PHONY: clean all default
-all: warpx-writer
+all: warpx-writer warpx-reader
 default: all
 
-warpx-writer: decomp.o settings.o warpx-writer.o
+warpx-writer: decomp.o warpxsettings.o io_adios.o warpx-writer.o
 	${MPICXX} -o $@ ${CXXFLAGS} ${CXX_MPI_FLAGS} $+ ${CXX_MPI_LDFLAGS}
 
-warpx-reader: decomp.o settings.o warpx-reader.o
+warpx-reader: decomp.o warpxsettings.o io_adios.o warpx-reader.o
 	${MPICXX} -o $@ ${CXXFLAGS} ${CXX_MPI_FLAGS} $+ ${CXX_MPI_LDFLAGS}
 
 %.o: %.cpp

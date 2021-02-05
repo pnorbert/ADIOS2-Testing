@@ -4,9 +4,14 @@
 #include <string>
 #include <vector>
 
-enum class CouplingMode { MPI, ADIOS };
+enum class CouplingMode
+{
+    MPI,
+    ADIOS
+};
 
-struct Settings {
+struct WarpxSettings
+{
     CouplingMode cplMode;
     int steps;
     std::string inputfile1D;
@@ -14,10 +19,10 @@ struct Settings {
     std::string streamName;
     std::string adios_config;
     std::vector<size_t> readDecomp3D;
-    
+    bool readerDump;
 
-    Settings();
-    static Settings from_json(const std::string &fname);
+    WarpxSettings();
+    static WarpxSettings from_json(const std::string &fname);
 };
 
 #endif
