@@ -96,8 +96,7 @@ void writerADIOS(const WarpxSettings &settings, const Decomp &decomp,
         for (int b = 0; b < decomp.nblocks3D; ++b)
         {
             const auto &block = decomp.blocks3D[b];
-            if (block.writerID < decomp.minWriterID ||
-                block.writerID > decomp.maxWriterID)
+            if (block.writerRank != rank)
             {
                 continue;
             }
@@ -138,8 +137,7 @@ void writerADIOS(const WarpxSettings &settings, const Decomp &decomp,
         for (int b = 0; b < decomp.nblocks1D; ++b)
         {
             const auto &block = decomp.blocks1D[b];
-            if (block.writerID < decomp.minWriterID ||
-                block.writerID > decomp.maxWriterID)
+            if (block.writerRank != rank)
             {
                 continue;
             }
@@ -186,21 +184,20 @@ void readerADIOS(const WarpxSettings &settings, const Decomp &decomp,
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
 
-    std::vector<double> Bx(decomp.nElems3D), By(decomp.nElems3D),
-        Bz(decomp.nElems3D), Ex(decomp.nElems3D), Ey(decomp.nElems3D),
-        Ez(decomp.nElems3D), jx(decomp.nElems3D), jy(decomp.nElems3D),
-        jz(decomp.nElems3D), rho(decomp.nElems3D);
+    const ReaderDecomp &d = decomp.readers[rank];
+    std::vector<double> Bx(d.nElems3D), By(d.nElems3D), Bz(d.nElems3D),
+        Ex(d.nElems3D), Ey(d.nElems3D), Ez(d.nElems3D), jx(d.nElems3D),
+        jy(d.nElems3D), jz(d.nElems3D), rho(d.nElems3D);
 
-    std::vector<double> eid(decomp.readerCount1D), emx(decomp.readerCount1D),
-        emy(decomp.readerCount1D), emz(decomp.readerCount1D),
-        epx(decomp.readerCount1D), epy(decomp.readerCount1D),
-        epz(decomp.readerCount1D), ew(decomp.readerCount1D);
+    std::vector<double> eid(d.count1D), emx(d.count1D), emy(d.count1D),
+        emz(d.count1D), epx(d.count1D), epy(d.count1D), epz(d.count1D),
+        ew(d.count1D);
 
-    adios2::Box<adios2::Dims> sel3D = {{decomp.readerStart3D},
-                                       {decomp.readerCount3D}};
+    adios2::Box<adios2::Dims> sel3D = {
+        {d.start3D[0], d.start3D[1], d.start3D[2]},
+        {d.count3D[0], d.count3D[1], d.count3D[2]}};
 
-    adios2::Box<adios2::Dims> sel1D = {{decomp.readerStart1D},
-                                       {decomp.readerCount1D}};
+    adios2::Box<adios2::Dims> sel1D = {{d.start1D}, {d.count1D}};
 
     adios2::ADIOS adios(settings.adios_config, comm);
     adios2::IO io = adios.DeclareIO("WarpX");
@@ -211,7 +208,7 @@ void readerADIOS(const WarpxSettings &settings, const Decomp &decomp,
     if (settings.readerDump)
     {
         io.SetEngine("FileStream");
-        dump = io.Open("dump.bp", adios2::Mode::Write);
+        dump = io.Open("dump_adios.bp", adios2::Mode::Write);
     }
 
     for (int step = 0; step < settings.steps; ++step)

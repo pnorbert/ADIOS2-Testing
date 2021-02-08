@@ -15,10 +15,10 @@
 
 #include <mpi.h>
 
-#include "warpxsettings.h"
 #include "decomp.h"
 #include "io_adios.h"
 #include "io_mpi.h"
+#include "warpxsettings.h"
 
 int rank, nproc;
 MPI_Comm app_comm;
@@ -52,6 +52,15 @@ int main(int argc, char *argv[])
 
     WarpxSettings settings = WarpxSettings::from_json(argv[1]);
 
+    if (settings.nWriters != static_cast<size_t>(nproc))
+    {
+        std::cout << "Writer size is invalid. Number of processes " << nproc
+                  << " must equal to \"nWriter\": " << settings.nWriters
+                  << " in the settings file." << std::endl;
+        MPI_Finalize();
+        return 1;
+    }
+
     /* Process input specs decomp_3D.in and decomp_1D.in */
     Decomp decomp(settings, app_comm);
 
@@ -71,9 +80,10 @@ int main(int argc, char *argv[])
     {
         writerADIOS(settings, decomp, app_comm);
     }
-    else // (settings.cplMode == CouplingMode::ADIOS)
+    else // (settings.cplMode == CouplingMode::MPI)
     {
-        /* code */
+        IO_MPI io(settings, decomp, app_comm, true);
+        io.WriterMPI();
     }
 
     MPI_Finalize();

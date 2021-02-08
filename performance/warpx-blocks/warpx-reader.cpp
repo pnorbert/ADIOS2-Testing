@@ -16,10 +16,10 @@
 #include "adios2.h"
 #include <mpi.h>
 
-#include "warpxsettings.h"
 #include "decomp.h"
 #include "io_adios.h"
 #include "io_mpi.h"
+#include "warpxsettings.h"
 
 enum class InputMode
 {
@@ -76,9 +76,7 @@ int main(int argc, char *argv[])
                   << "\nadios config: " << settings.adios_config << std::endl;
     }
 
-    size_t n = settings.readDecomp3D[0] * settings.readDecomp3D[1] *
-               settings.readDecomp3D[2];
-    if (n != static_cast<size_t>(nproc))
+    if (settings.nReaders != static_cast<size_t>(nproc))
     {
         std::cout << "Reader decomposition is invalid for " << nproc
                   << " processes."
@@ -92,9 +90,10 @@ int main(int argc, char *argv[])
     {
         readerADIOS(settings, decomp, app_comm);
     }
-    else // (settings.cplMode == CouplingMode::ADIOS)
+    else // (settings.cplMode == CouplingMode::MPI)
     {
-        /* code */
+        IO_MPI io(settings, decomp, app_comm, false);
+        io.ReaderMPI();
     }
 
     MPI_Finalize();

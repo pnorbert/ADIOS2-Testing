@@ -18,11 +18,15 @@ struct WarpxSettings
     std::string inputfile3D;
     std::string streamName;
     std::string adios_config;
+    size_t nWriters;
     std::vector<size_t> readDecomp3D;
     bool readerDump;
+    size_t verbose; /* 0-2 */
 
     WarpxSettings();
     static WarpxSettings from_json(const std::string &fname);
+
+    size_t nReaders; /* calculated from readDecomp3D */
 };
 
 #endif

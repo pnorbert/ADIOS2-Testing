@@ -118,7 +118,7 @@ void Decomp::ProcessDecomp1D(const std::string &fileContent)
             continue;
         }
         split(line, ' ', v);
-        blocks1D[blockID].writerID = std::stol(v[1]);
+        blocks1D[blockID].producerID = std::stol(v[1]);
         blocks1D[blockID].start = std::stol(v[2]);
         blocks1D[blockID].count = std::stol(v[3]);
         ++blockID;
@@ -136,7 +136,7 @@ void Decomp::ProcessDecomp1D(const std::string &fileContent)
 void Decomp::ProcessDecomp3D(const std::string &fileContent)
 {
     std::string line;
-    size_t maxWriterID = 0;
+    size_t maxProducerID = 0;
     std::istringstream fin(fileContent);
 
     // Shape
@@ -172,10 +172,10 @@ void Decomp::ProcessDecomp3D(const std::string &fileContent)
             continue;
         }
         split(line, ' ', v);
-        blocks3D[blockID].writerID = std::stol(v[1]);
-        if (blocks3D[blockID].writerID > maxWriterID)
+        blocks3D[blockID].producerID = std::stol(v[1]);
+        if (blocks3D[blockID].producerID > maxProducerID)
         {
-            maxWriterID = blocks3D[blockID].writerID;
+            maxProducerID = blocks3D[blockID].producerID;
         }
         blocks3D[blockID].start[0] = std::stol(v[2]);
         blocks3D[blockID].start[1] = std::stol(v[3]);
@@ -186,105 +186,198 @@ void Decomp::ProcessDecomp3D(const std::string &fileContent)
         ++blockID;
     }
 
-    nWriters = maxWriterID + 1;
+    nProducers = maxProducerID + 1;
     if (!rank)
     {
         std::cout << "decomp 3D: Shape = {" << shape3D[0] << " x " << shape3D[1]
                   << " x " << shape3D[2] << "}"
                   << "  nBlocks = " << nblocks3D << "  found = " << blockID
                   << std::endl;
-        std::cout << "nWriters = " << nWriters << std::endl;
+        std::cout << "nProducers = " << nProducers << std::endl;
     }
 }
 
 void Decomp::DecomposeWriters()
 {
-    int ne = nWriters / nproc;
-    minWriterID = rank * ne;
-    int rem = nWriters % nproc;
-    if (rank < rem)
+    int b1d = 0;
+    int b3d = 0;
+    for (size_t r = 0; r < s.nWriters; ++r)
     {
-        ++ne;
-        minWriterID += rank;
-    }
-    else
-    {
-        minWriterID += rem;
-    }
-    maxWriterID = minWriterID + ne - 1;
-    std::cout << "rank " << rank << " writerIDs " << minWriterID << " - "
-              << maxWriterID << std::endl;
-}
-
-void Decomp::DecomposeReaders(std::vector<size_t> readDecomp3D)
-{
-    /* 1D decomposition */
-    readerCount1D = shape1D / nproc;
-    readerStart1D = rank * readerCount1D;
-    int rem = shape1D % nproc;
-    if (rank < rem)
-    {
-        ++readerCount1D;
-        readerStart1D += rank;
-    }
-    else
-    {
-        readerStart1D += rem;
-    }
-
-    std::cout << "Reader rank " << rank << " 1D off = " << readerStart1D
-              << ", cnt = " << readerCount1D << std::endl;
-
-    /* 3D decomposition */
-    /* Calculate 3D position of rank -> {rpx, rpy, rpz} */
-    readerPos3D[0] = rank % readDecomp3D[0];
-    size_t yz = rank / readDecomp3D[0];
-    readerPos3D[1] = yz % readDecomp3D[1];
-    size_t dxy = readDecomp3D[0] * readDecomp3D[1];
-    readerPos3D[2] = rank / dxy;
-
-    /* Calculate size of local array in 3D {ndx, ndy, ndz}
-       and offset in global space in 3D {offx, offy, offz}
-    */
-    readerStart3D.resize(3);
-    readerCount3D.resize(3);
-    nElems3D = 1;
-    for (int i = 0; i < 3; ++i)
-    {
-        readerCount3D[i] = shape3D[i] / readDecomp3D[i];
-        readerStart3D[i] = readerPos3D[i] * readerCount3D[i];
-        size_t rem = shape3D[i] % readDecomp3D[i];
-        if (readerPos3D[i] < rem)
+        size_t ne = nProducers / s.nWriters;
+        size_t minProducerID = r * ne;
+        size_t rem = nProducers % s.nWriters;
+        if (r < rem)
         {
-            ++readerCount3D[i];
-            readerStart3D[i] += readerPos3D[i];
+            ++ne;
+            minProducerID += r;
         }
         else
         {
-            readerStart3D[i] += rem;
+            minProducerID += rem;
         }
-        nElems3D *= readerCount3D[i];
-    }
+        size_t maxProducerID = minProducerID + ne - 1;
+        if (!rank)
+        {
+            std::cout << "Writer rank " << r << " producerIDs " << minProducerID
+                      << " - " << maxProducerID << std::endl;
+        }
 
-    std::cout << "Reader rank " << rank << " pos = {" << readerPos3D[0] << ", "
-              << readerPos3D[1] << ", " << readerPos3D[2] << "}"
-              << " off = {" << readerStart3D[0] << ", " << readerStart3D[1]
-              << ", " << readerStart3D[2] << "}"
-              << " cnt = {" << readerCount3D[0] << ", " << readerCount3D[1]
-              << ", " << readerCount3D[2] << "}" << std::endl;
+        /* Record who is writing each 1D block */
+        while (b1d < nblocks1D && blocks1D[b1d].producerID <= maxProducerID)
+        {
+            blocks1D[b1d].writerRank = r;
+            ++b1d;
+        }
+
+        /* Record who is writing each 3D block */
+        while (b3d < nblocks3D && blocks3D[b3d].producerID <= maxProducerID)
+        {
+            blocks3D[b3d].writerRank = r;
+            ++b3d;
+        }
+    }
 }
 
-Decomp::Decomp(const WarpxSettings &settings, MPI_Comm comm) : comm(comm)
+void Decomp::DecomposeReaders1D()
+{
+    for (size_t r = 0; r < s.nReaders; ++r)
+    {
+        /* 1D decomposition: each reader gets about the same number of blocks,
+           not the same number of elements to ensure 1-to-1 sending of each
+           block*/
+        size_t nb = nblocks1D / s.nReaders;
+        size_t sb = r * nb;
+        size_t rem = nblocks1D % s.nReaders;
+        if (r < rem)
+        {
+            ++nb;
+            sb += r;
+        }
+        else
+        {
+            sb += rem;
+        }
+
+        readers[r].start1D = blocks1D[sb].start;
+        readers[r].count1D = 0;
+        for (size_t i = 0; i < nb; ++i)
+        {
+            readers[r].count1D += blocks1D[sb + i].count;
+        }
+
+        if (!rank)
+        {
+            std::cout << "Reader rank " << r << " 1D blocks " << sb << " - "
+                      << sb + nb - 1 << " off = " << readers[r].start1D
+                      << ", cnt = " << readers[r].count1D << std::endl;
+        }
+
+        /* Record who is reading each 1D block */
+        for (size_t b = 0; b < nb; ++b)
+        {
+            blocks1D[sb + b].readerRank = static_cast<int>(r);
+        }
+    }
+}
+
+void Decomp::DecomposeReaders3D()
+{
+    for (size_t r = 0; r < s.nReaders; ++r)
+    {
+        /* 3D decomposition */
+        /* Calculate 3D position of rank -> {rpx, rpy, rpz} */
+        readers[r].pos3D[0] = r % s.readDecomp3D[0];
+        size_t yz = r / s.readDecomp3D[0];
+        readers[r].pos3D[1] = yz % s.readDecomp3D[1];
+        size_t dxy = s.readDecomp3D[0] * s.readDecomp3D[1];
+        readers[r].pos3D[2] = r / dxy;
+
+        /* Calculate size of local array in 3D {ndx, ndy, ndz}
+           and offset in global space in 3D {offx, offy, offz}
+        */
+        readers[r].nElems3D = 1;
+        for (int i = 0; i < 3; ++i)
+        {
+            readers[r].count3D[i] = shape3D[i] / s.readDecomp3D[i];
+            readers[r].start3D[i] = readers[r].pos3D[i] * readers[r].count3D[i];
+            size_t rem = shape3D[i] % s.readDecomp3D[i];
+            if (readers[r].pos3D[i] < rem)
+            {
+                ++readers[r].count3D[i];
+                readers[r].start3D[i] += readers[r].pos3D[i];
+            }
+            else
+            {
+                readers[r].start3D[i] += rem;
+            }
+            readers[r].nElems3D *= readers[r].count3D[i];
+        }
+
+        if (!rank)
+        {
+
+            std::cout << "Reader rank " << r << " 3D pos = {"
+                      << readers[r].pos3D[0] << ", " << readers[r].pos3D[1]
+                      << ", " << readers[r].pos3D[2] << "}"
+                      << " off = {" << readers[r].start3D[0] << ", "
+                      << readers[r].start3D[1] << ", " << readers[r].start3D[2]
+                      << "}"
+                      << " cnt = {" << readers[r].count3D[0] << ", "
+                      << readers[r].count3D[1] << ", " << readers[r].count3D[2]
+                      << "}" << std::endl;
+        }
+    }
+}
+
+/* Record who is reading each 3D block */
+void Decomp::CalculateReceivers3D()
+{
+    auto lf_FindReceiver = [&](const size_t posx, const size_t posy,
+                               const size_t posz) -> int {
+        size_t reader;
+        for (size_t r = 0; r < s.nReaders; ++r)
+        {
+            if (readers[r].start3D[0] == posx &&
+                readers[r].start3D[1] == posy && readers[r].start3D[2] == posz)
+            {
+                reader = r;
+                break;
+            }
+        }
+        return reader;
+    };
+
+    size_t ndx = shape3D[0] / s.readDecomp3D[0];
+    size_t ndy = shape3D[1] / s.readDecomp3D[1];
+    size_t ndz = shape3D[2] / s.readDecomp3D[2];
+    for (int b = 0; b < nblocks3D; ++b)
+    {
+        size_t posx = blocks3D[b].start[0] / ndx;
+        size_t posy = blocks3D[b].start[1] / ndy;
+        size_t posz = blocks3D[b].start[2] / ndz;
+        size_t reader = lf_FindReceiver(posx, posy, posz);
+        blocks3D[b].readerRank = static_cast<int>(reader);
+    }
+}
+
+Decomp::Decomp(const WarpxSettings &settings, MPI_Comm comm)
+: s(settings), comm(comm)
 {
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
 
-    std::string f1d = BroadcastFile(settings.inputfile1D, comm);
+    std::string f1d = BroadcastFile(s.inputfile1D, comm);
     ProcessDecomp1D(f1d);
-    std::string f3d = BroadcastFile(settings.inputfile3D, comm);
+    std::string f3d = BroadcastFile(s.inputfile3D, comm);
     ProcessDecomp3D(f3d);
+
     DecomposeWriters();
-    DecomposeReaders(settings.readDecomp3D);
+
+    /* nReaders can be calculated on both sides from settings */
+    readers.resize(s.nReaders);
+    DecomposeReaders1D();
+    DecomposeReaders3D();
+    CalculateReceivers3D();
 }
 
 Decomp::~Decomp()
