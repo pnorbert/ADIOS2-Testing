@@ -80,12 +80,13 @@ int main(int argc, char *argv[])
 
     if (settings.cplMode == CouplingMode::ADIOS)
     {
-        readerADIOS(settings, decomp, app_comm);
+        IO_ADIOS io(settings, decomp, app_comm, false);
+        io.Reader();
     }
     else // (settings.cplMode == CouplingMode::MPI)
     {
         IO_MPI io(settings, decomp, app_comm, false);
-        io.ReaderMPI();
+        io.Reader();
     }
 
     MPI_Finalize();

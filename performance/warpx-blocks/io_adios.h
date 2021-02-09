@@ -3,12 +3,19 @@
 
 #include <mpi.h>
 
-#include "warpxsettings.h"
 #include "decomp.h"
+#include "io.h"
+#include "warpxsettings.h"
 
-void writerADIOS(const WarpxSettings &settings, const Decomp &decomp,
-                 MPI_Comm comm);
-void readerADIOS(const WarpxSettings &settings, const Decomp &decomp,
-                 MPI_Comm comm);
+class IO_ADIOS : public IO
+{
+public:
+    IO_ADIOS(const WarpxSettings &settings, const Decomp &decomp, MPI_Comm comm,
+             const bool isWriter);
+    ~IO_ADIOS() = default;
+
+    void Writer();
+    void Reader();
+};
 
 #endif /* IO_ADIOS_H_ */

@@ -18,16 +18,21 @@
 
 #include "io_adios.h"
 
-void writerADIOS(const WarpxSettings &settings, const Decomp &decomp,
-                 MPI_Comm comm)
+IO_ADIOS::IO_ADIOS(const WarpxSettings &settings, const Decomp &decomp,
+                   MPI_Comm comm, const bool isWriter)
+: IO(settings, decomp, comm, isWriter)
+{
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nproc);
+    CalculateMyBlocks();
+    AllocateBlocks();
+}
+
+void IO_ADIOS::Writer()
 {
     std::string inputFileName;
     std::string variableName;
     std::string variableType;
-
-    int rank, nproc;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &nproc);
 
     adios2::ADIOS adios(settings.adios_config, comm);
     adios2::IO io = adios.DeclareIO("WarpX");
@@ -84,12 +89,16 @@ void writerADIOS(const WarpxSettings &settings, const Decomp &decomp,
         io.DefineVariable<double>("/data/800/particles/electrons/weighting",
                                   shape1d, start1d, count1d, false);
 
-    for (int step = 0; step < settings.steps; ++step)
+    for (int step = 1; step <= settings.steps; ++step)
     {
         if (!rank)
         {
             std::cout << "Writer Step: " << step << std::endl;
         }
+
+        Compute(step);
+        int mybid = 0;
+
         engine.BeginStep();
 
         /* 3D variables */
@@ -99,14 +108,6 @@ void writerADIOS(const WarpxSettings &settings, const Decomp &decomp,
             if (block.writerRank != rank)
             {
                 continue;
-            }
-
-            size_t blockSize = block.count[0] * block.count[1] * block.count[2];
-            std::vector<double> data3d(blockSize);
-            double value = rank + step / 100.0;
-            for (size_t i = 0; i < blockSize; ++i)
-            {
-                data3d[i] = value;
             }
 
             adios2::Dims count3d(block.count, block.count + 3);
@@ -121,17 +122,19 @@ void writerADIOS(const WarpxSettings &settings, const Decomp &decomp,
             vjy.SetSelection({start3d, count3d});
             vjz.SetSelection({start3d, count3d});
             vrho.SetSelection({start3d, count3d});
-            engine.Put(vBx, data3d.data(), adios2::Mode::Sync);
-            engine.Put(vBy, data3d.data(), adios2::Mode::Sync);
-            engine.Put(vBz, data3d.data(), adios2::Mode::Sync);
-            engine.Put(vEx, data3d.data(), adios2::Mode::Sync);
-            engine.Put(vEy, data3d.data(), adios2::Mode::Sync);
-            engine.Put(vEz, data3d.data(), adios2::Mode::Sync);
-            engine.Put(vjx, data3d.data(), adios2::Mode::Sync);
-            engine.Put(vjy, data3d.data(), adios2::Mode::Sync);
-            engine.Put(vjz, data3d.data(), adios2::Mode::Sync);
-            engine.Put(vrho, data3d.data(), adios2::Mode::Sync);
+            engine.Put(vBx, bBx[mybid].data());
+            engine.Put(vBy, bBy[mybid].data());
+            engine.Put(vBz, bBz[mybid].data());
+            engine.Put(vEx, bEx[mybid].data());
+            engine.Put(vEy, bEy[mybid].data());
+            engine.Put(vEz, bEz[mybid].data());
+            engine.Put(vjx, bjx[mybid].data());
+            engine.Put(vjy, bjy[mybid].data());
+            engine.Put(vjz, bjz[mybid].data());
+            engine.Put(vrho, brho[mybid].data());
         }
+
+        mybid = 0;
 
         /* 1D variables */
         for (int b = 0; b < decomp.nblocks1D; ++b)
@@ -158,14 +161,14 @@ void writerADIOS(const WarpxSettings &settings, const Decomp &decomp,
             vepy.SetSelection({{block.start}, {block.count}});
             vepz.SetSelection({{block.start}, {block.count}});
             vew.SetSelection({{block.start}, {block.count}});
-            engine.Put(veid, data1d.data(), adios2::Mode::Sync);
-            engine.Put(vemx, data1d.data(), adios2::Mode::Sync);
-            engine.Put(vemy, data1d.data(), adios2::Mode::Sync);
-            engine.Put(vemz, data1d.data(), adios2::Mode::Sync);
-            engine.Put(vepx, data1d.data(), adios2::Mode::Sync);
-            engine.Put(vepy, data1d.data(), adios2::Mode::Sync);
-            engine.Put(vepz, data1d.data(), adios2::Mode::Sync);
-            engine.Put(vew, data1d.data(), adios2::Mode::Sync);
+            engine.Put(veid, beid[mybid].data());
+            engine.Put(vemx, bemx[mybid].data());
+            engine.Put(vemy, bemy[mybid].data());
+            engine.Put(vemz, bemz[mybid].data());
+            engine.Put(vepx, bepx[mybid].data());
+            engine.Put(vepy, bepy[mybid].data());
+            engine.Put(vepz, bepz[mybid].data());
+            engine.Put(vew, bew[mybid].data());
         }
 
         engine.EndStep();
@@ -173,16 +176,11 @@ void writerADIOS(const WarpxSettings &settings, const Decomp &decomp,
     engine.Close();
 }
 
-void readerADIOS(const WarpxSettings &settings, const Decomp &decomp,
-                 MPI_Comm comm)
+void IO_ADIOS::Reader()
 {
     std::string inputFileName;
     std::string variableName;
     std::string variableType;
-
-    int rank, nproc;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &nproc);
 
     const ReaderDecomp &d = decomp.readers[rank];
     std::vector<double> Bx(d.nElems3D), By(d.nElems3D), Bz(d.nElems3D),
@@ -211,7 +209,7 @@ void readerADIOS(const WarpxSettings &settings, const Decomp &decomp,
         dump = io.Open("dump_adios.bp", adios2::Mode::Write);
     }
 
-    for (int step = 0; step < settings.steps; ++step)
+    for (int step = 1; step <= settings.steps; ++step)
     {
         if (!rank)
         {

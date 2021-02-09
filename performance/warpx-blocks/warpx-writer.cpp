@@ -78,12 +78,13 @@ int main(int argc, char *argv[])
 
     if (settings.cplMode == CouplingMode::ADIOS)
     {
-        writerADIOS(settings, decomp, app_comm);
+        IO_ADIOS io(settings, decomp, app_comm, true);
+        io.Writer();
     }
     else // (settings.cplMode == CouplingMode::MPI)
     {
         IO_MPI io(settings, decomp, app_comm, true);
-        io.WriterMPI();
+        io.Writer();
     }
 
     MPI_Finalize();
