@@ -5,8 +5,8 @@
     "steps": 1, 
     "streamName": "warpx.bp",
     "adios_config": "adios2.xml",
-    "nWriters": 3,
-    "readDecomp3D": [ 1, 2, 1],
+    "nWriters": 2,
+    "readDecomp3D": [ 1, 2, 2],
     "readerDump": true,
     "verbose": 2
 }

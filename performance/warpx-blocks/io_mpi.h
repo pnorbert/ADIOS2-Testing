@@ -39,6 +39,10 @@ private:
     std::vector<std::vector<double>> beid, bemx, bemy, bemz, bepx, bepy, bepz,
         bew;
     void AllocateBlocks();
+
+    void Copy3D(std::vector<double> &, const struct ReaderDecomp &,
+                const std::vector<double> &, const struct Block3D &,
+                const int blockid);
 };
 
 #endif /* IO_MPI_H_ */
