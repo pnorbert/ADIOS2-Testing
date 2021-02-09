@@ -25,11 +25,13 @@ IO_MPI::IO_MPI(const WarpxSettings &settings, const Decomp &decomp,
     MPI_Comm_size(comm, &nproc);
     MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
     MPI_Comm_size(MPI_COMM_WORLD, &worldNProc);
-    ExchangeWorldRanks(isWriter);
+    ExchangeWorldRanks();
+    CalculateMyBlocks();
+    AllocateBlocks();
 }
 
 /* Global communication */
-void IO_MPI::ExchangeWorldRanks(bool isWriter)
+void IO_MPI::ExchangeWorldRanks()
 {
     struct Info
     {
@@ -64,26 +66,83 @@ void IO_MPI::ExchangeWorldRanks(bool isWriter)
     }
 }
 
-void IO_MPI::WriterMPI()
+void IO_MPI::CalculateMyBlocks()
 {
-    /* pre-calculate how many blocks we have to write to manage all
+    /* pre-calculate how many blocks we have to write/read to manage all
        MPI requests at once */
-    size_t nMyBlocks3D = 0;
+
+    int r;
     for (int b = 0; b < decomp.nblocks3D; ++b)
     {
-        if (decomp.blocks3D[b].writerRank == rank)
+        r = (isWriter ? decomp.blocks3D[b].writerRank
+                      : decomp.blocks3D[b].readerRank);
+        /*if (settings.verbose >= 2)
+        {
+            std::cout << "Rank: " << rank << "(" << worldRank
+                      << ") checks 3D block " << b << " with r = " << r
+                      << std::endl;
+        }*/
+        if (r == rank)
         {
             ++nMyBlocks3D;
         }
     }
-    size_t nMyBlocks1D = 0;
     for (int b = 0; b < decomp.nblocks1D; ++b)
     {
-        if (decomp.blocks1D[b].writerRank == rank)
+        r = (isWriter ? decomp.blocks1D[b].writerRank
+                      : decomp.blocks1D[b].readerRank);
+        /*if (settings.verbose >= 2)
+        {
+            std::cout << "Rank: " << rank << "(" << worldRank
+                      << ") checks 1D block " << b << " with r = " << r
+                      << std::endl;
+        }*/
+        if (r == rank)
         {
             ++nMyBlocks1D;
         }
     }
+}
+
+void IO_MPI::AllocateBlocks()
+{
+    int r;
+    size_t mybid = 0;
+
+    /* 1D blocks */
+    beid.resize(nMyBlocks1D);
+    bemx.resize(nMyBlocks1D);
+    bemy.resize(nMyBlocks1D);
+    bemz.resize(nMyBlocks1D);
+    bepx.resize(nMyBlocks1D);
+    bepy.resize(nMyBlocks1D);
+    bepz.resize(nMyBlocks1D);
+    bew.resize(nMyBlocks1D);
+
+    mybid = 0;
+    for (int b = 0; b < decomp.nblocks1D; ++b)
+    {
+        const auto &block = decomp.blocks1D[b];
+        r = (isWriter ? decomp.blocks1D[b].writerRank
+                      : decomp.blocks1D[b].readerRank);
+        if (r == rank)
+        {
+            beid[mybid].resize(block.count);
+            bemx[mybid].resize(block.count);
+            bemy[mybid].resize(block.count);
+            bemz[mybid].resize(block.count);
+            bepx[mybid].resize(block.count);
+            bepy[mybid].resize(block.count);
+            bepz[mybid].resize(block.count);
+            bew[mybid].resize(block.count);
+            ++mybid;
+        }
+    }
+}
+
+void IO_MPI::WriterMPI()
+{
+
     MPI_Request req[10 * nMyBlocks3D + 8 * nMyBlocks1D];
     MPI_Status statuses[10 * nMyBlocks3D + 8 * nMyBlocks1D];
     if (settings.verbose >= 2)
@@ -103,6 +162,7 @@ void IO_MPI::WriterMPI()
         }
 
         int reqCount = 0;
+        int mybid = 0;
 
         /* 3D variables */
 #if 0
@@ -148,6 +208,8 @@ void IO_MPI::WriterMPI()
         }
 #endif
 
+        mybid = 0;
+
         /* 1D variables */
         for (int b = 0; b < decomp.nblocks1D; ++b)
         {
@@ -158,11 +220,18 @@ void IO_MPI::WriterMPI()
             }
 
             size_t blockSize = block.count;
-            std::vector<double> data1d(blockSize);
+            // std::vector<double> data1d(blockSize);
             double value = 10 + rank + step / 100.0;
             for (size_t i = 0; i < blockSize; ++i)
             {
-                data1d[i] = value;
+                beid[mybid][i] = value;
+                bemx[mybid][i] = value;
+                bemy[mybid][i] = value;
+                bemz[mybid][i] = value;
+                bepx[mybid][i] = value;
+                bepy[mybid][i] = value;
+                bepz[mybid][i] = value;
+                bew[mybid][i] = value;
             }
 
             int sendTo = readerWorldRanks[block.readerRank];
@@ -175,42 +244,41 @@ void IO_MPI::WriterMPI()
                           << " tag = " << tag << " req = " << reqCount
                           << std::endl;
             }
-            //            MPI_Send(data1d.data(), blockSize, MPI_DOUBLE, sendTo,
-            //            tag++,
-            //                     MPI_COMM_WORLD); /*eid*/
 
-            MPI_Isend(data1d.data(), blockSize, MPI_DOUBLE, sendTo, tag++,
+            MPI_Isend(beid[mybid].data(), blockSize, MPI_DOUBLE, sendTo, tag++,
                       MPI_COMM_WORLD, &req[reqCount++]); /*eid*/
-            MPI_Isend(data1d.data(), blockSize, MPI_DOUBLE, sendTo, tag++,
+            MPI_Isend(bemx[mybid].data(), blockSize, MPI_DOUBLE, sendTo, tag++,
                       MPI_COMM_WORLD, &req[reqCount++]); /*emx*/
-            MPI_Isend(data1d.data(), blockSize, MPI_DOUBLE, sendTo, tag++,
+            MPI_Isend(bemy[mybid].data(), blockSize, MPI_DOUBLE, sendTo, tag++,
                       MPI_COMM_WORLD, &req[reqCount++]); /*emy*/
-            MPI_Isend(data1d.data(), blockSize, MPI_DOUBLE, sendTo, tag++,
+            MPI_Isend(bemz[mybid].data(), blockSize, MPI_DOUBLE, sendTo, tag++,
                       MPI_COMM_WORLD, &req[reqCount++]); /*emz*/
-            MPI_Isend(data1d.data(), blockSize, MPI_DOUBLE, sendTo, tag++,
+            MPI_Isend(bepx[mybid].data(), blockSize, MPI_DOUBLE, sendTo, tag++,
                       MPI_COMM_WORLD, &req[reqCount++]); /*epx*/
-            MPI_Isend(data1d.data(), blockSize, MPI_DOUBLE, sendTo, tag++,
+            MPI_Isend(bepy[mybid].data(), blockSize, MPI_DOUBLE, sendTo, tag++,
                       MPI_COMM_WORLD, &req[reqCount++]); /*epy*/
-            MPI_Isend(data1d.data(), blockSize, MPI_DOUBLE, sendTo, tag++,
+            MPI_Isend(bepz[mybid].data(), blockSize, MPI_DOUBLE, sendTo, tag++,
                       MPI_COMM_WORLD, &req[reqCount++]); /*epz*/
-            MPI_Isend(data1d.data(), blockSize, MPI_DOUBLE, sendTo, tag++,
+            MPI_Isend(bew[mybid].data(), blockSize, MPI_DOUBLE, sendTo, tag++,
                       MPI_COMM_WORLD, &req[reqCount++]); /*ew*/
-            if (settings.verbose >= 2)
+            /*if (settings.verbose >= 2)
             {
                 std::cout << "Writer rank: " << rank << " Wait for " << reqCount
                           << " requests with tag = " << tag - 8
                           << " reqCount = " << reqCount << std::endl;
             }
             MPI_Waitall(reqCount, req, statuses);
-            reqCount = 0;
+            reqCount = 0;*/
+
+            ++mybid;
         }
 
-        /*if (settings.verbose >= 2)
+        if (settings.verbose >= 2)
         {
             std::cout << "Writer rank: " << rank << " waitall "
                       << " reqCount = " << reqCount << std::endl;
         }
-        MPI_Waitall(reqCount, req, statuses);*/
+        MPI_Waitall(reqCount, req, statuses);
     }
 }
 
@@ -229,50 +297,6 @@ void IO_MPI::ReaderMPI()
     std::vector<double> eid(d.count1D), emx(d.count1D), emy(d.count1D),
         emz(d.count1D), epx(d.count1D), epy(d.count1D), epz(d.count1D),
         ew(d.count1D);
-
-    /*
-     *  Pre-allocate all blocks that will come in
-     */
-
-    /* Pre-allocate individual 3D block variables received from writers */
-    std::vector<double> bBx, bBy, bBz, bEx, bEy, bEz, bjx, bjy, bjz, brho;
-
-    /* Pre-allocate individual 1D block variables received from writers */
-    size_t nMyBlocks1D = 0;
-    std::vector<std::vector<double>> beid, bemx, bemy, bemz, bepx, bepy, bepz,
-        bew;
-    for (int b = 0; b < decomp.nblocks1D; ++b)
-    {
-        if (decomp.blocks1D[b].readerRank == rank)
-        {
-            ++nMyBlocks1D;
-        }
-    }
-    beid.resize(nMyBlocks1D);
-    bemx.resize(nMyBlocks1D);
-    bemy.resize(nMyBlocks1D);
-    bemz.resize(nMyBlocks1D);
-    bepx.resize(nMyBlocks1D);
-    bepy.resize(nMyBlocks1D);
-    bepz.resize(nMyBlocks1D);
-    bew.resize(nMyBlocks1D);
-    size_t mybid = 0;
-    for (int b = 0; b < decomp.nblocks1D; ++b)
-    {
-        const auto &block = decomp.blocks1D[b];
-        if (block.readerRank == rank)
-        {
-            beid[mybid].resize(block.count);
-            bemx[mybid].resize(block.count);
-            bemy[mybid].resize(block.count);
-            bemz[mybid].resize(block.count);
-            bepx[mybid].resize(block.count);
-            bepy[mybid].resize(block.count);
-            bepz[mybid].resize(block.count);
-            bew[mybid].resize(block.count);
-            ++mybid;
-        }
-    }
 
     adios2::Box<adios2::Dims> sel3D = {
         {d.start3D[0], d.start3D[1], d.start3D[2]},
@@ -334,7 +358,7 @@ void IO_MPI::ReaderMPI()
                       << 8 * nMyBlocks1D << " requests " << std::endl;
         }
 
-        mybid = 0;
+        size_t mybid = 0;
         for (int b = 0; b < decomp.nblocks1D; ++b)
         {
             const auto &block = decomp.blocks1D[b];
@@ -357,8 +381,6 @@ void IO_MPI::ReaderMPI()
                           << std::endl;
             }
 
-            // MPI_Recv(beid[mybid].data(), blockSize, MPI_DOUBLE, recvFrom,
-            //          tag++, MPI_COMM_WORLD, &statuses[0]); /*eid*/
             MPI_Irecv(beid[mybid].data(), blockSize, MPI_DOUBLE, recvFrom,
                       tag++, MPI_COMM_WORLD, &req[reqCount++]); /*eid*/
             MPI_Irecv(bemx[mybid].data(), blockSize, MPI_DOUBLE, recvFrom,
@@ -375,22 +397,22 @@ void IO_MPI::ReaderMPI()
                       tag++, MPI_COMM_WORLD, &req[reqCount++]); /*epz*/
             MPI_Irecv(bew[mybid].data(), blockSize, MPI_DOUBLE, recvFrom, tag++,
                       MPI_COMM_WORLD, &req[reqCount++]); /*ew*/
-            if (settings.verbose >= 2)
+            /*if (settings.verbose >= 2)
             {
                 std::cout << "Reader rank: " << rank << " Wait for " << reqCount
                           << " requests with tag = " << tag - 8 << std::endl;
             }
             MPI_Waitall(reqCount, req, statuses);
-            reqCount = 0;
+            reqCount = 0;*/
             ++mybid;
         }
 
-        /*if (settings.verbose >= 2)
+        if (settings.verbose >= 2)
         {
             std::cout << "Reader rank: " << rank << " waitall "
                       << " reqCount = " << reqCount << std::endl;
         }
-        MPI_Waitall(reqCount, req, statuses);*/
+        MPI_Waitall(reqCount, req, statuses);
 
         mybid = 0;
         for (int b = 0; b < decomp.nblocks1D; ++b)

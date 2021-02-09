@@ -337,8 +337,8 @@ void Decomp::CalculateReceivers3D()
         size_t reader;
         for (size_t r = 0; r < s.nReaders; ++r)
         {
-            if (readers[r].start3D[0] == posx &&
-                readers[r].start3D[1] == posy && readers[r].start3D[2] == posz)
+            if (readers[r].pos3D[0] == posx && readers[r].pos3D[1] == posy &&
+                readers[r].pos3D[2] == posz)
             {
                 reader = r;
                 break;
@@ -355,8 +355,34 @@ void Decomp::CalculateReceivers3D()
         size_t posx = blocks3D[b].start[0] / ndx;
         size_t posy = blocks3D[b].start[1] / ndy;
         size_t posz = blocks3D[b].start[2] / ndz;
+        /* Error checking */
+        size_t posx2 = (blocks3D[b].start[0] + blocks3D[b].count[0] - 1) / ndx;
+        size_t posy2 = (blocks3D[b].start[1] + blocks3D[b].count[1] - 1) / ndy;
+        size_t posz2 = (blocks3D[b].start[2] + blocks3D[b].count[2] - 1) / ndz;
+        if (posx != posx2 || posy != posy2 || posz != posz2)
+        {
+            if (!rank)
+            {
+                std::cout << "3D block " << b << " start = {"
+                          << blocks3D[b].start[0] << ", "
+                          << blocks3D[b].start[1] << ", "
+                          << blocks3D[b].start[2] << "}"
+                          << " would need to be split by multiple readers"
+                          << ", which is not supported. Change the reader "
+                          << "decomposition" << std::endl;
+            }
+            throw std::runtime_error(
+                "Reader decomposition splits some writer's 3D block");
+        }
+
         size_t reader = lf_FindReceiver(posx, posy, posz);
         blocks3D[b].readerRank = static_cast<int>(reader);
+        /*if (!rank)
+        {
+            std::cout << "3D block " << b << " pos = {" << posx << ", " << posy
+                      << ", " << posz << "}"
+                      << " will be read by reader " << reader << std::endl;
+        }*/
     }
 }
 
