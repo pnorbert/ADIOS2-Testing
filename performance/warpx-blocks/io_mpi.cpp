@@ -76,12 +76,6 @@ void IO_MPI::CalculateMyBlocks()
     {
         r = (isWriter ? decomp.blocks3D[b].writerRank
                       : decomp.blocks3D[b].readerRank);
-        /*if (settings.verbose >= 2)
-        {
-            std::cout << "Rank: " << rank << "(" << worldRank
-                      << ") checks 3D block " << b << " with r = " << r
-                      << std::endl;
-        }*/
         if (r == rank)
         {
             ++nMyBlocks3D;
@@ -91,16 +85,80 @@ void IO_MPI::CalculateMyBlocks()
     {
         r = (isWriter ? decomp.blocks1D[b].writerRank
                       : decomp.blocks1D[b].readerRank);
-        /*if (settings.verbose >= 2)
-        {
-            std::cout << "Rank: " << rank << "(" << worldRank
-                      << ") checks 1D block " << b << " with r = " << r
-                      << std::endl;
-        }*/
         if (r == rank)
         {
             ++nMyBlocks1D;
         }
+    }
+}
+
+/* Write side "compute function", separated for the purpose of
+   measuring computeTime separately */
+void IO_MPI::Compute(const int step)
+{
+    int mybid = 0;
+
+    const auto tTotalStart = std::chrono::steady_clock::now();
+
+    /* 3D variables */
+    for (int b = 0; b < decomp.nblocks3D; ++b)
+    {
+        const auto &block = decomp.blocks3D[b];
+        if (block.writerRank != rank)
+        {
+            continue;
+        }
+
+        size_t blockSize = block.count[0] * block.count[1] * block.count[2];
+        double value = rank + step / 100.0;
+        for (size_t i = 0; i < blockSize; ++i)
+        {
+            bBx[mybid][i] = value;
+            bBy[mybid][i] = value;
+            bBz[mybid][i] = value;
+            bEx[mybid][i] = value;
+            bEy[mybid][i] = value;
+            bEz[mybid][i] = value;
+            bjx[mybid][i] = value;
+            bjy[mybid][i] = value;
+            bjz[mybid][i] = value;
+            brho[mybid][i] = value;
+        }
+        ++mybid;
+    }
+
+    /* 1D variables */
+    mybid = 0;
+    for (int b = 0; b < decomp.nblocks1D; ++b)
+    {
+        const auto &block = decomp.blocks1D[b];
+        if (block.writerRank != rank)
+        {
+            continue;
+        }
+
+        size_t blockSize = block.count;
+        double value = 10 + rank + step / 100.0;
+        for (size_t i = 0; i < blockSize; ++i)
+        {
+            beid[mybid][i] = value;
+            bemx[mybid][i] = value;
+            bemy[mybid][i] = value;
+            bemz[mybid][i] = value;
+            bepx[mybid][i] = value;
+            bepy[mybid][i] = value;
+            bepz[mybid][i] = value;
+            bew[mybid][i] = value;
+        }
+        ++mybid;
+    }
+
+    const auto tTotalEnd = std::chrono::steady_clock::now();
+    Seconds timeTotal = tTotalEnd - tTotalStart;
+    Seconds timeToIdle = settings.computeTime - timeTotal;
+    if (timeToIdle.count() > 0.0)
+    {
+        std::this_thread::sleep_for(timeToIdle);
     }
 }
 
@@ -193,6 +251,8 @@ void IO_MPI::WriterMPI()
             std::cout << "Writer Step: " << step << std::endl;
         }
 
+        Compute(step);
+
         int reqCount = 0;
         int mybid = 0;
 
@@ -206,21 +266,6 @@ void IO_MPI::WriterMPI()
             }
 
             size_t blockSize = block.count[0] * block.count[1] * block.count[2];
-            double value = rank + step / 100.0;
-            for (size_t i = 0; i < blockSize; ++i)
-            {
-                bBx[mybid][i] = value;
-                bBy[mybid][i] = value;
-                bBz[mybid][i] = value;
-                bEx[mybid][i] = value;
-                bEy[mybid][i] = value;
-                bEz[mybid][i] = value;
-                bjx[mybid][i] = value;
-                bjy[mybid][i] = value;
-                bjz[mybid][i] = value;
-                brho[mybid][i] = value;
-            }
-
             int sendTo = readerWorldRanks[block.readerRank];
             int tag = b * 100;
             if (settings.verbose >= 2)
@@ -266,19 +311,6 @@ void IO_MPI::WriterMPI()
             }
 
             size_t blockSize = block.count;
-            double value = 10 + rank + step / 100.0;
-            for (size_t i = 0; i < blockSize; ++i)
-            {
-                beid[mybid][i] = value;
-                bemx[mybid][i] = value;
-                bemy[mybid][i] = value;
-                bemz[mybid][i] = value;
-                bepx[mybid][i] = value;
-                bepy[mybid][i] = value;
-                bepz[mybid][i] = value;
-                bew[mybid][i] = value;
-            }
-
             int sendTo = readerWorldRanks[block.readerRank];
             int tag = b * 100 + 50;
             if (settings.verbose >= 2)

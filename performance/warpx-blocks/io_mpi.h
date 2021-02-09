@@ -40,9 +40,17 @@ private:
         bew;
     void AllocateBlocks();
 
+    /*
+        Reader only functions
+    */
     void Copy3D(std::vector<double> &, const struct ReaderDecomp &,
                 const std::vector<double> &, const struct Block3D &,
                 const int blockid);
+
+    /*
+        Writer only functions
+    */
+    void Compute(const int step);
 };
 
 #endif /* IO_MPI_H_ */

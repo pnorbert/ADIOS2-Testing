@@ -216,7 +216,7 @@ void Decomp::DecomposeWriters()
             minProducerID += rem;
         }
         size_t maxProducerID = minProducerID + ne - 1;
-        if (!rank)
+        if (!rank && s.verbose >= 1)
         {
             std::cout << "Writer rank " << r << " producerIDs " << minProducerID
                       << " - " << maxProducerID << std::endl;
@@ -265,7 +265,7 @@ void Decomp::DecomposeReaders1D()
             readers[r].count1D += blocks1D[sb + i].count;
         }
 
-        if (!rank)
+        if (!rank && s.verbose >= 1)
         {
             std::cout << "Reader rank " << r << " 1D blocks " << sb << " - "
                       << sb + nb - 1 << " off = " << readers[r].start1D
@@ -313,7 +313,7 @@ void Decomp::DecomposeReaders3D()
             readers[r].nElems3D *= readers[r].count3D[i];
         }
 
-        if (!rank)
+        if (!rank && s.verbose >= 2)
         {
 
             std::cout << "Reader rank " << r << " 3D pos = {"

@@ -21,16 +21,8 @@
 #include "io_mpi.h"
 #include "warpxsettings.h"
 
-enum class InputMode
-{
-    MPI,
-    ADIOS
-};
-
 int rank, nproc;
 MPI_Comm app_comm;
-InputMode mode = InputMode::ADIOS;
-int nsteps = 0;
 
 static void show_usage(std::string name)
 {
