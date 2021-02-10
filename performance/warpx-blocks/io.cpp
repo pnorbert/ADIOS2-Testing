@@ -170,7 +170,7 @@ void IO::Compute(const int step)
         }
 
         size_t blockSize = block.count;
-        double value = 10 + rank + step / 100.0;
+        double value = rank + step / 100.0;
         for (size_t i = 0; i < blockSize; ++i)
         {
             beid[mybid][i] = value;
