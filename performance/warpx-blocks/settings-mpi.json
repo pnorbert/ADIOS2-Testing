@@ -3,8 +3,11 @@
     "input3D": "input/decomp_N256_128_3D.in",
     "couplingMode": "MPI",
     "steps": 10,
+    "computeTime": 20,
     "streamName": "warpx.bp",
+    "nWriters": 1536,
     "adios_config": "adios2.xml",
-    "readDecomp3D": [ 2, 3, 1],
-    "readerDump": true
+    "readDecomp3D": [ 1, 8, 8],
+    "readerDump": true,
+    "verbose": 1
 }
