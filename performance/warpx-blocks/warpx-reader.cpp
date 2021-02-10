@@ -91,12 +91,17 @@ int main(int argc, char *argv[])
     }
 
     std::vector<Timers> tv = GatherTimers(t, app_comm, rank, nproc);
-    struct Timers ta = AvgTimes(tv);
     if (!rank)
     {
+        struct Timers ta = AvgTimes(tv);
+        size_t maxidx = MaxTimerIdx(tv);
         std::cout << "Reader timing: Average compute = " << ta.compute.count()
                   << " input = " << ta.input.count()
                   << " output = " << ta.output.count() << std::endl;
+        std::cout << "Reader timing: Max on process " << maxidx
+                  << " compute = " << tv[maxidx].compute.count()
+                  << " input = " << tv[maxidx].input.count()
+                  << " output = " << tv[maxidx].output.count() << std::endl;
     }
     MPI_Finalize();
 

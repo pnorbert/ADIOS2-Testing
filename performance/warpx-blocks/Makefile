@@ -26,7 +26,9 @@ warpx-reader: decomp.o warpxsettings.o timers.o io.o io_adios.o io_mpi.o warpx-r
 	${MPICXX} -c ${CXXFLAGS} ${CXX_MPI_FLAGS} $+
 
 
-clean:
+clean: clean-data
 	rm -rf warpx-writer warpx-reader
 	rm -rf *.o 
+
+clean-data:
 	rm -rf *.bp *.sst *.ssc
