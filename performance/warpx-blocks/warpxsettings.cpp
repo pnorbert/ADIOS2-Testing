@@ -28,6 +28,7 @@ void to_json(nlohmann::json &j, const WarpxSettings &s)
                        {"nWriters", s.nWriters},
                        {"readDecomp3D", s.readDecomp3D},
                        {"readerDump", s.readerDump},
+                       {"adiosLockSelections", s.adiosLockSelections},
                        {"verbose", s.verbose}};
 }
 
@@ -45,6 +46,7 @@ void from_json(const nlohmann::json &j, WarpxSettings &s)
     j.at("nWriters").get_to(s.nWriters);
     j.at("readDecomp3D").get_to(s.readDecomp3D);
     j.at("readerDump").get_to(s.readerDump);
+    j.at("adiosLockSelections").get_to(s.adiosLockSelections);
     j.at("verbose").get_to(s.verbose);
 
     s.computeTime = Seconds(cpt);

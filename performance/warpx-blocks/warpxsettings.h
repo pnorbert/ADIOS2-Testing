@@ -24,6 +24,7 @@ struct WarpxSettings
     size_t nWriters;
     std::vector<size_t> readDecomp3D;
     bool readerDump;
+    bool adiosLockSelections;
     size_t verbose; /* 0-2 */
 
     WarpxSettings();

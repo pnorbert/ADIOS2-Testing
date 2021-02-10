@@ -9,5 +9,6 @@
     "adios_config": "adios2.xml",
     "readDecomp3D": [ 1, 8, 8],
     "readerDump": true,
+    "adiosLockSelections": true,
     "verbose": 1
 }

@@ -185,6 +185,11 @@ Timers IO_ADIOS::Writer()
             ++mybid;
         }
 
+        if (step == 1 && settings.adiosLockSelections)
+        {
+            engine.LockWriterDefinitions();
+        }
+
         engine.EndStep();
         te = std::chrono::steady_clock::now();
         t.output += te - ts;
@@ -320,6 +325,11 @@ Timers IO_ADIOS::Reader()
         engine.Get(vepy, epy.data());
         engine.Get(vepz, epz.data());
         engine.Get(vew, ew.data());
+
+        if (step == 1 && settings.adiosLockSelections)
+        {
+            engine.LockReaderSelections();
+        }
 
         engine.EndStep();
 
