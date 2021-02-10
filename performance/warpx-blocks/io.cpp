@@ -33,6 +33,7 @@ void IO::CalculateMyBlocks()
        MPI requests at once */
 
     int r;
+    nMyBlocks3D = 0;
     for (int b = 0; b < decomp.nblocks3D; ++b)
     {
         r = (isWriter ? decomp.blocks3D[b].writerRank
@@ -42,6 +43,7 @@ void IO::CalculateMyBlocks()
             ++nMyBlocks3D;
         }
     }
+    nMyBlocks1D = 0;
     for (int b = 0; b < decomp.nblocks1D; ++b)
     {
         r = (isWriter ? decomp.blocks1D[b].writerRank

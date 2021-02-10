@@ -26,8 +26,6 @@ IO_MPI::IO_MPI(const WarpxSettings &settings, const Decomp &decomp,
     MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
     MPI_Comm_size(MPI_COMM_WORLD, &worldNProc);
     ExchangeWorldRanks();
-    CalculateMyBlocks();
-    AllocateBlocks();
 }
 
 /* Global communication */
@@ -522,7 +520,7 @@ void IO_MPI::Copy3D(std::vector<double> &var3d, const struct ReaderDecomp &vd,
                     const struct Block3D &block, const int blockid)
 {
     static int msgs = 0;
-    const int msglimit = 1;
+    const int msglimit = 4099;
     int blockSize =
         static_cast<int>(block.count[0] * block.count[1] * block.count[2]);
     if (settings.verbose >= 2 && msgs < msglimit)
@@ -601,14 +599,14 @@ void IO_MPI::Copy3D(std::vector<double> &var3d, const struct ReaderDecomp &vd,
             std::cout << "Reader rank " << rank
                       << " block is contiguous in Z dim" << std::endl;
         }
-        for (size_t x = 0; x < end[0]; ++x)
+        for (size_t x = 0; x < block.count[0]; ++x)
         {
-            size_t bcount = block.count[1] * block.count[2];
+            size_t nelems = block.count[1] * block.count[2];
             size_t boffset = x * block.count[1] * block.count[2];
             size_t voffset = (start[0] + x) * vd.count3D[1] * vd.count3D[2] +
                              start[1] * vd.count3D[2];
             std::copy(blockdata.begin() + boffset,
-                      blockdata.begin() + boffset + bcount - 1,
+                      blockdata.begin() + boffset + nelems - 1,
                       var3d.begin() + voffset);
         }
     }
@@ -620,18 +618,31 @@ void IO_MPI::Copy3D(std::vector<double> &var3d, const struct ReaderDecomp &vd,
             std::cout << "Reader rank " << rank
                       << " block has to be copied row by row" << std::endl;
         }
-        for (size_t x = 0; x < end[0]; ++x)
+        for (size_t x = 0; x < block.count[0]; ++x)
         {
-            for (size_t y = 0; y < end[1]; ++y)
+            for (size_t y = 0; y < block.count[1]; ++y)
             {
-                size_t bcount = block.count[2];
+                size_t nelems = block.count[2];
                 size_t boffset =
                     x * block.count[1] * block.count[2] + y * block.count[2];
                 size_t voffset =
                     (start[0] + x) * vd.count3D[1] * vd.count3D[2] +
                     (start[1] + y) * vd.count3D[2];
+                if (voffset + nelems > var3d.size())
+                {
+                    if (msgs < msglimit)
+                    {
+                        std::cout << "  ERROR x = " << x << " y = " << y
+                                  << " voffset = " << voffset
+                                  << " boffset = " << boffset
+                                  << " nelems = " << nelems
+                                  << " blocksize = " << var3d.size()
+                                  << std::endl;
+                        ++msgs;
+                    }
+                }
                 std::copy(blockdata.begin() + boffset,
-                          blockdata.begin() + boffset + bcount - 1,
+                          blockdata.begin() + boffset + nelems - 1,
                           var3d.begin() + voffset);
             }
         }

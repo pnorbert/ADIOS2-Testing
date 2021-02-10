@@ -24,8 +24,6 @@ IO_ADIOS::IO_ADIOS(const WarpxSettings &settings, const Decomp &decomp,
 {
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
-    CalculateMyBlocks();
-    AllocateBlocks();
 }
 
 Timers IO_ADIOS::Writer()
