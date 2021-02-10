@@ -65,6 +65,15 @@ int main(int argc, char *argv[])
     /* Process input specs decomp_3D.in and decomp_1D.in */
     Decomp decomp(settings, app_comm);
 
+    if (settings.nWriters > static_cast<size_t>(decomp.nProducers))
+    {
+        std::cout << "Writer size is invalid. Number of processes " << nproc
+                  << " cannot be more than the original producers "
+                  << decomp.nProducers << std::endl;
+        MPI_Finalize();
+        return 1;
+    }
+
     if (!rank)
     {
         std::cout << "reader decomposition 3D: {" << settings.readDecomp3D[0]
