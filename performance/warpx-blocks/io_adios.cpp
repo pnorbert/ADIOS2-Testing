@@ -28,11 +28,10 @@ IO_ADIOS::IO_ADIOS(const WarpxSettings &settings, const Decomp &decomp,
     AllocateBlocks();
 }
 
-void IO_ADIOS::Writer()
+Timers IO_ADIOS::Writer()
 {
-    std::string inputFileName;
-    std::string variableName;
-    std::string variableType;
+    Timers t;
+    TimePoint ts, te;
 
     adios2::ADIOS adios(settings.adios_config, comm);
     adios2::IO io = adios.DeclareIO("WarpX");
@@ -96,7 +95,12 @@ void IO_ADIOS::Writer()
             std::cout << "Writer Step: " << step << std::endl;
         }
 
+        ts = std::chrono::steady_clock::now();
         Compute(step);
+        te = std::chrono::steady_clock::now();
+        t.compute += te - ts;
+        ts = te;
+
         int mybid = 0;
 
         engine.BeginStep();
@@ -108,6 +112,14 @@ void IO_ADIOS::Writer()
             if (block.writerRank != rank)
             {
                 continue;
+            }
+
+            size_t blockSize = block.count[0] * block.count[1] * block.count[2];
+            std::vector<double> data3d(blockSize);
+            double value = rank + step / 100.0;
+            for (size_t i = 0; i < blockSize; ++i)
+            {
+                data3d[i] = value;
             }
 
             adios2::Dims count3d(block.count, block.count + 3);
@@ -132,6 +144,8 @@ void IO_ADIOS::Writer()
             engine.Put(vjy, bjy[mybid].data());
             engine.Put(vjz, bjz[mybid].data());
             engine.Put(vrho, brho[mybid].data());
+
+            ++mybid;
         }
 
         mybid = 0;
@@ -144,7 +158,6 @@ void IO_ADIOS::Writer()
             {
                 continue;
             }
-
             size_t blockSize = block.count;
             std::vector<double> data1d(blockSize);
             double value = rank + step / 100.0;
@@ -169,18 +182,26 @@ void IO_ADIOS::Writer()
             engine.Put(vepy, bepy[mybid].data());
             engine.Put(vepz, bepz[mybid].data());
             engine.Put(vew, bew[mybid].data());
+
+            ++mybid;
         }
 
         engine.EndStep();
+        te = std::chrono::steady_clock::now();
+        t.output += te - ts;
     }
+
+    ts = std::chrono::steady_clock::now();
     engine.Close();
+    te = std::chrono::steady_clock::now();
+    t.output += te - ts;
+    return t;
 }
 
-void IO_ADIOS::Reader()
+Timers IO_ADIOS::Reader()
 {
-    std::string inputFileName;
-    std::string variableName;
-    std::string variableType;
+    Timers t;
+    TimePoint ts, te;
 
     const ReaderDecomp &d = decomp.readers[rank];
     std::vector<double> Bx(d.nElems3D), By(d.nElems3D), Bz(d.nElems3D),
@@ -215,6 +236,8 @@ void IO_ADIOS::Reader()
         {
             std::cout << "Reader Step: " << step << std::endl;
         }
+
+        ts = std::chrono::steady_clock::now();
         engine.BeginStep();
 
         /* 3D variables */
@@ -299,6 +322,10 @@ void IO_ADIOS::Reader()
 
         engine.EndStep();
 
+        te = std::chrono::steady_clock::now();
+        t.input += te - ts;
+        ts = te;
+
         if (settings.readerDump)
         {
             /* Dump data to disk */
@@ -323,10 +350,21 @@ void IO_ADIOS::Reader()
             dump.Put(vew, ew.data());
             dump.EndStep();
         }
+
+        te = std::chrono::steady_clock::now();
+        t.output += te - ts;
     }
+    ts = std::chrono::steady_clock::now();
     engine.Close();
+    te = std::chrono::steady_clock::now();
+    t.input += te - ts;
+    te = ts;
+
     if (settings.readerDump)
     {
         dump.Close();
+        te = std::chrono::steady_clock::now();
+        t.output += te - ts;
     }
+    return t;
 }

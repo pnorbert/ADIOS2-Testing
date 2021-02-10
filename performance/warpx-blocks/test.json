@@ -6,7 +6,7 @@
     "computeTime": 1.5,
     "streamName": "warpx.bp",
     "adios_config": "adios2.xml",
-    "nWriters": 2,
+    "nWriters": 1,
     "readDecomp3D": [ 2, 1, 2],
     "readerDump": true,
     "verbose": 1

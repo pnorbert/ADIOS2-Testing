@@ -1,21 +1,16 @@
 #ifndef __SETTINGS_H__
 #define __SETTINGS_H__
 
-#include <chrono>
 #include <string>
 #include <vector>
+
+#include "timers.h"
 
 enum class CouplingMode
 {
     MPI,
     ADIOS
 };
-
-typedef std::chrono::duration<double> Seconds;
-typedef std::chrono::time_point<
-    std::chrono::steady_clock,
-    std::chrono::duration<double, std::chrono::steady_clock::period>>
-    TimePoint;
 
 struct WarpxSettings
 {

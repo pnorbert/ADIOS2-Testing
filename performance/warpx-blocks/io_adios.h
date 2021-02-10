@@ -14,8 +14,8 @@ public:
              const bool isWriter);
     ~IO_ADIOS() = default;
 
-    void Writer();
-    void Reader();
+    Timers Writer();
+    Timers Reader();
 };
 
 #endif /* IO_ADIOS_H_ */

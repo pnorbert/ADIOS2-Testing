@@ -66,8 +66,11 @@ void IO_MPI::ExchangeWorldRanks()
     }
 }
 
-void IO_MPI::Writer()
+Timers IO_MPI::Writer()
 {
+    Timers t;
+    TimePoint ts, te;
+
     MPI_Request req[10 * nMyBlocks3D + 8 * nMyBlocks1D];
     MPI_Status statuses[10 * nMyBlocks3D + 8 * nMyBlocks1D];
     if (settings.verbose >= 2)
@@ -84,7 +87,11 @@ void IO_MPI::Writer()
             std::cout << "Writer Step: " << step << std::endl;
         }
 
+        ts = std::chrono::steady_clock::now();
         Compute(step);
+        te = std::chrono::steady_clock::now();
+        t.compute += te - ts;
+        ts = te;
 
         int reqCount = 0;
         int mybid = 0;
@@ -189,11 +196,18 @@ void IO_MPI::Writer()
                       << " reqCount = " << reqCount << std::endl;
         }
         MPI_Waitall(reqCount, req, statuses);
+        te = std::chrono::steady_clock::now();
+        t.output += te - ts;
     }
+
+    return t;
 }
 
-void IO_MPI::Reader()
+Timers IO_MPI::Reader()
 {
+    Timers t;
+    TimePoint ts, te;
+
     MPI_Request req[10 * nMyBlocks3D + 8 * nMyBlocks1D];
     MPI_Status statuses[10 * nMyBlocks3D + 8 * nMyBlocks1D];
     if (settings.verbose >= 2)
@@ -202,10 +216,6 @@ void IO_MPI::Reader()
                   << 10 * nMyBlocks3D + 8 * nMyBlocks1D << " requests "
                   << std::endl;
     }
-
-    std::string inputFileName;
-    std::string variableName;
-    std::string variableType;
 
     const ReaderDecomp &d = decomp.readers[rank];
     /* Reader's variables in memory */
@@ -216,6 +226,8 @@ void IO_MPI::Reader()
     std::vector<double> eid(d.count1D), emx(d.count1D), emy(d.count1D),
         emz(d.count1D), epx(d.count1D), epy(d.count1D), epz(d.count1D),
         ew(d.count1D);
+
+    ts = std::chrono::steady_clock::now();
 
     adios2::ADIOS adios(settings.adios_config, comm);
     adios2::IO io = adios.DeclareIO("WarpX");
@@ -277,9 +289,12 @@ void IO_MPI::Reader()
     adios2::Variable<double> vew =
         io.DefineVariable<double>("/data/800/particles/electrons/weighting",
                                   shape1d, start1d, count1d, false);
+    te = std::chrono::steady_clock::now();
+    t.output += te - ts;
 
-    for (int step = 0; step < settings.steps; ++step)
+    for (int step = 1; step <= settings.steps; ++step)
     {
+        ts = std::chrono::steady_clock::now();
         if (!rank)
         {
             std::cout << "Reader Step: " << step << std::endl;
@@ -458,6 +473,10 @@ void IO_MPI::Reader()
             ++mybid;
         }
 
+        te = std::chrono::steady_clock::now();
+        t.input += te - ts;
+        ts = te;
+
         if (settings.readerDump)
         {
             /* Dump data to disk */
@@ -481,12 +500,19 @@ void IO_MPI::Reader()
             dump.Put(vepz, epz.data());
             dump.Put(vew, ew.data());
             dump.EndStep();
+            te = std::chrono::steady_clock::now();
+            t.output += te - ts;
         }
     }
     if (settings.readerDump)
     {
+        ts = std::chrono::steady_clock::now();
         dump.Close();
+        te = std::chrono::steady_clock::now();
+        t.output += te - ts;
     }
+
+    return t;
 }
 
 /* Copy a block into the larger variable array

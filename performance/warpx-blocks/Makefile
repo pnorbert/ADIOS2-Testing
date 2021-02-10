@@ -1,5 +1,5 @@
 # Set the ADIOS2 installation directory
-ADIOS2_DIR=/opt/adios2
+ADIOS2_DIR=/opt/adios2.debug
 
 # Set the MPI compilers if available
 MPICXX=mpicxx
@@ -16,10 +16,10 @@ CXX_MPI_LDFLAGS:=`${ADIOS2_DIR}/bin/adios2-config --cxx-libs -m`
 all: warpx-writer warpx-reader
 default: all
 
-warpx-writer: decomp.o warpxsettings.o io.o io_adios.o io_mpi.o warpx-writer.o
+warpx-writer: decomp.o warpxsettings.o timers.o io.o io_adios.o io_mpi.o warpx-writer.o
 	${MPICXX} -o $@ ${CXXFLAGS} ${CXX_MPI_FLAGS} $+ ${CXX_MPI_LDFLAGS}
 
-warpx-reader: decomp.o warpxsettings.o io.o io_adios.o io_mpi.o warpx-reader.o
+warpx-reader: decomp.o warpxsettings.o timers.o io.o io_adios.o io_mpi.o warpx-reader.o
 	${MPICXX} -o $@ ${CXXFLAGS} ${CXX_MPI_FLAGS} $+ ${CXX_MPI_LDFLAGS}
 
 %.o: %.cpp

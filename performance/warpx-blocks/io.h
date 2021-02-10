@@ -4,6 +4,7 @@
 #include <mpi.h>
 
 #include "decomp.h"
+#include "timers.h"
 #include "warpxsettings.h"
 
 class IO
@@ -12,6 +13,9 @@ public:
     IO(const WarpxSettings &settings, const Decomp &decomp, MPI_Comm comm,
        const bool isWriter);
     ~IO() = default;
+
+    virtual Timers Writer() = 0;
+    virtual Timers Reader() = 0;
 
 protected:
     const WarpxSettings &settings;

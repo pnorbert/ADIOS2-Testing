@@ -14,8 +14,8 @@ public:
            const bool isWriter);
     ~IO_MPI() = default;
 
-    void Writer();
-    void Reader();
+    Timers Writer();
+    Timers Reader();
 
 private:
     int worldRank, worldNProc;

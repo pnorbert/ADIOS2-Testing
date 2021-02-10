@@ -18,6 +18,7 @@
 #include "decomp.h"
 #include "io_adios.h"
 #include "io_mpi.h"
+#include "timers.h"
 #include "warpxsettings.h"
 
 int rank, nproc;
@@ -76,15 +77,25 @@ int main(int argc, char *argv[])
                   << "\nadios config: " << settings.adios_config << std::endl;
     }
 
+    Timers t;
     if (settings.cplMode == CouplingMode::ADIOS)
     {
         IO_ADIOS io(settings, decomp, app_comm, true);
-        io.Writer();
+        t = io.Writer();
     }
     else // (settings.cplMode == CouplingMode::MPI)
     {
         IO_MPI io(settings, decomp, app_comm, true);
-        io.Writer();
+        t = io.Writer();
+    }
+
+    std::vector<Timers> tv = GatherTimers(t, app_comm, rank, nproc);
+    struct Timers ta = AvgTimes(tv);
+    if (!rank)
+    {
+        std::cout << "Writer timing: Average compute = " << ta.compute.count()
+                  << " input = " << ta.input.count()
+                  << " output = " << ta.output.count() << std::endl;
     }
 
     MPI_Finalize();
