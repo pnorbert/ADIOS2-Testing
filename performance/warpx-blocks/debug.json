@@ -1,0 +1,13 @@
+{
+    "input1D": "input/decomp_debug_64blocks_1D.in",
+    "input3D": "input/decomp_debug_64blocks_3D.in",
+    "couplingMode": "MPI",
+    "steps": 2, 
+    "computeTime": 1.5,
+    "streamName": "warpx.bp",
+    "adios_config": "adios2.xml",
+    "nWriters": 6,
+    "readDecomp3D": [ 2, 2, 2],
+    "readerDump": true,
+    "verbose": 1
+}

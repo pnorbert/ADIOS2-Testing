@@ -30,6 +30,7 @@ Timers IO_ADIOS::Writer()
 {
     Timers t;
     TimePoint ts, te;
+    TimePoint totalstart = std::chrono::steady_clock::now();
 
     adios2::ADIOS adios(settings.adios_config, comm);
     adios2::IO io = adios.DeclareIO("WarpX");
@@ -193,6 +194,7 @@ Timers IO_ADIOS::Writer()
     engine.Close();
     te = std::chrono::steady_clock::now();
     t.output += te - ts;
+    t.total = std::chrono::steady_clock::now() - totalstart;
     return t;
 }
 
@@ -200,6 +202,7 @@ Timers IO_ADIOS::Reader()
 {
     Timers t;
     TimePoint ts, te;
+    TimePoint totalstart = std::chrono::steady_clock::now();
 
     const ReaderDecomp &d = decomp.readers[rank];
     std::vector<double> Bx(d.nElems3D), By(d.nElems3D), Bz(d.nElems3D),
@@ -364,5 +367,6 @@ Timers IO_ADIOS::Reader()
         te = std::chrono::steady_clock::now();
         t.output += te - ts;
     }
+    t.total = std::chrono::steady_clock::now() - totalstart;
     return t;
 }

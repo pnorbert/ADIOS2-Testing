@@ -19,33 +19,33 @@ double AvgTime(std::vector<double> v)
     return sum / v.size();
 }
 
-Timers AvgTimes(std::vector<Timers> tv)
+Timers AvgTimes(const std::vector<Timers> &tv)
 {
     Timers avg;
     for (const auto e : tv)
     {
+        avg.total += e.total;
         avg.compute += e.compute;
         avg.input += e.input;
         avg.output += e.output;
     }
+    avg.total = avg.total / tv.size();
     avg.compute = avg.compute / tv.size();
     avg.input = avg.input / tv.size();
     avg.output = avg.output / tv.size();
     return avg;
 }
 
-size_t MaxTimerIdx(std::vector<Timers> tv)
+size_t MaxTimerIdx(const std::vector<Timers> &tv)
 {
-    Timers avg;
     size_t idx = 0;
     Seconds maxsum(0.0);
     for (size_t i = 0; i < tv.size(); ++i)
     {
-        Seconds sum = tv[i].compute + tv[i].input + tv[i].output;
-        if (sum > maxsum)
+        if (tv[i].total > maxsum)
         {
             idx = i;
-            maxsum = sum;
+            maxsum = tv[i].total;
         }
     }
     return idx;

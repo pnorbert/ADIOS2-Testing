@@ -68,6 +68,7 @@ Timers IO_MPI::Writer()
 {
     Timers t;
     TimePoint ts, te;
+    TimePoint totalstart = std::chrono::steady_clock::now();
 
     MPI_Request req[10 * nMyBlocks3D + 8 * nMyBlocks1D];
     MPI_Status statuses[10 * nMyBlocks3D + 8 * nMyBlocks1D];
@@ -198,6 +199,7 @@ Timers IO_MPI::Writer()
         t.output += te - ts;
     }
 
+    t.total = std::chrono::steady_clock::now() - totalstart;
     return t;
 }
 
@@ -205,6 +207,7 @@ Timers IO_MPI::Reader()
 {
     Timers t;
     TimePoint ts, te;
+    TimePoint totalstart = std::chrono::steady_clock::now();
 
     MPI_Request req[10 * nMyBlocks3D + 8 * nMyBlocks1D];
     MPI_Status statuses[10 * nMyBlocks3D + 8 * nMyBlocks1D];
@@ -292,11 +295,12 @@ Timers IO_MPI::Reader()
 
     for (int step = 1; step <= settings.steps; ++step)
     {
-        ts = std::chrono::steady_clock::now();
         if (!rank)
         {
             std::cout << "Reader Step: " << step << std::endl;
         }
+
+        ts = std::chrono::steady_clock::now();
         int reqCount = 0;
         size_t mybid = 0;
 
@@ -411,6 +415,10 @@ Timers IO_MPI::Reader()
         }
         MPI_Waitall(reqCount, req, statuses);
 
+        te = std::chrono::steady_clock::now();
+        t.input += te - ts;
+        ts = te;
+
         /* Copy 3D received blocks into 3D variable */
         mybid = 0;
         for (int b = 0; b < decomp.nblocks3D; ++b)
@@ -472,7 +480,7 @@ Timers IO_MPI::Reader()
         }
 
         te = std::chrono::steady_clock::now();
-        t.input += te - ts;
+        t.compute += te - ts;
         ts = te;
 
         if (settings.readerDump)
@@ -510,6 +518,7 @@ Timers IO_MPI::Reader()
         t.output += te - ts;
     }
 
+    t.total = std::chrono::steady_clock::now() - totalstart;
     return t;
 }
 
@@ -520,7 +529,7 @@ void IO_MPI::Copy3D(std::vector<double> &var3d, const struct ReaderDecomp &vd,
                     const struct Block3D &block, const int blockid)
 {
     static int msgs = 0;
-    const int msglimit = 4099;
+    const int msglimit = 100;
     int blockSize =
         static_cast<int>(block.count[0] * block.count[1] * block.count[2]);
     if (settings.verbose >= 2 && msgs < msglimit)

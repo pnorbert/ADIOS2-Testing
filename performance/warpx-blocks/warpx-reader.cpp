@@ -93,15 +93,27 @@ int main(int argc, char *argv[])
     std::vector<Timers> tv = GatherTimers(t, app_comm, rank, nproc);
     if (!rank)
     {
-        struct Timers ta = AvgTimes(tv);
+        // struct Timers ta = AvgTimes(tv);
         size_t maxidx = MaxTimerIdx(tv);
-        std::cout << "Reader timing: Average compute = " << ta.compute.count()
-                  << " input = " << ta.input.count()
-                  << " output = " << ta.output.count() << std::endl;
-        std::cout << "Reader timing: Max on process " << maxidx
-                  << " compute = " << tv[maxidx].compute.count()
-                  << " input = " << tv[maxidx].input.count()
-                  << " output = " << tv[maxidx].output.count() << std::endl;
+        if (settings.cplMode == CouplingMode::ADIOS)
+        {
+            std::cout << "Reader timing: Max on process " << maxidx
+                      << " Total time = " << tv[maxidx].total.count()
+                      << " compute = " << tv[maxidx].compute.count()
+                      << " input = " << tv[maxidx].input.count()
+                      << " output = " << tv[maxidx].output.count() << " seconds"
+                      << std::endl;
+        }
+        else // (settings.cplMode == CouplingMode::MPI)
+        {
+            std::cout << "Reader timing: Max on process " << maxidx
+                      << " Total time = " << tv[maxidx].total.count()
+                      << " input(MPI+copy) = " << tv[maxidx].input.count()
+                      << "+" << tv[maxidx].compute.count() << " = "
+                      << tv[maxidx].input.count() + tv[maxidx].compute.count()
+                      << " output = " << tv[maxidx].output.count() << " seconds"
+                      << std::endl;
+        }
     }
     MPI_Finalize();
 
