@@ -19,7 +19,7 @@
 
 IO_MPI::IO_MPI(const WarpxSettings &settings, const Decomp &decomp,
                MPI_Comm comm, const bool isWriter)
-: IO(settings, decomp, comm, isWriter)
+: IO(settings, decomp, comm, isWriter, true)
 {
     MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
     MPI_Comm_size(MPI_COMM_WORLD, &worldNProc);

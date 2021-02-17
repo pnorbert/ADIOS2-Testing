@@ -11,7 +11,7 @@ class IO
 {
 public:
     IO(const WarpxSettings &settings, const Decomp &decomp, MPI_Comm comm,
-       const bool isWriter);
+       const bool isWriter, const bool allocateBlocks);
     ~IO() = default;
 
     virtual Timers Writer() = 0;

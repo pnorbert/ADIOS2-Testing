@@ -20,7 +20,7 @@
 
 IO_ADIOS::IO_ADIOS(const WarpxSettings &settings, const Decomp &decomp,
                    MPI_Comm comm, const bool isWriter)
-: IO(settings, decomp, comm, isWriter)
+: IO(settings, decomp, comm, isWriter, isWriter)
 {
 }
 
@@ -32,8 +32,8 @@ Timers IO_ADIOS::Writer()
 
     adios2::ADIOS adios(settings.adios_config, comm);
     adios2::IO io = adios.DeclareIO("WarpX");
-    // io.SetParameter("InitialBufferSize",
-    //                std::to_string(1.1 * nTotalAllocatedSize));
+    io.SetParameter("InitialBufferSize",
+                    std::to_string(1.1 * nTotalAllocatedSize));
 
     adios2::Engine engine = io.Open(settings.streamName, adios2::Mode::Write);
 
@@ -205,6 +205,205 @@ Timers IO_ADIOS::Writer()
 
 Timers IO_ADIOS::Reader()
 {
+    if (settings.readerDump)
+    {
+        return ReaderWithSpan();
+    }
+    else
+    {
+        return ReaderNoDump();
+    }
+}
+
+Timers IO_ADIOS::ReaderWithSpan()
+{
+    Timers t;
+    TimePoint ts, te;
+    TimePoint totalstart = std::chrono::steady_clock::now();
+
+    const ReaderDecomp &d = decomp.readers[rank];
+
+    size_t outputSize =
+        10 * d.nElems3D * sizeof(double) + 8 * d.count1D * sizeof(double);
+
+    adios2::Box<adios2::Dims> sel3D = {
+        {d.start3D[0], d.start3D[1], d.start3D[2]},
+        {d.count3D[0], d.count3D[1], d.count3D[2]}};
+
+    adios2::Box<adios2::Dims> sel1D = {{d.start1D}, {d.count1D}};
+
+    adios2::ADIOS adios(settings.adios_config, comm);
+    adios2::IO io = adios.DeclareIO("WarpX");
+    io.SetParameter("InitialBufferSize", std::to_string(outputSize + 4194304));
+    // if (!rank)
+    {
+        std::cout << "Reader rank " << rank
+                  << " allocated small blocks size = " << nTotalAllocatedSize
+                  << " output size = " << outputSize << std::endl;
+    }
+
+    adios2::Engine engine = io.Open(settings.streamName, adios2::Mode::Read);
+
+    adios2::Engine dump;
+    if (settings.readerDump)
+    {
+        io.SetEngine("FileStream");
+    }
+    else
+    {
+        io.SetEngine("NullCore");
+    }
+    dump = io.Open("dump_adios.bp", adios2::Mode::Write);
+
+    for (int step = 1; step <= settings.steps; ++step)
+    {
+        if (!rank)
+        {
+            std::cout << "Reader Step: " << step << std::endl;
+        }
+
+        ts = std::chrono::steady_clock::now();
+        engine.BeginStep();
+        dump.BeginStep();
+
+        /* 3D variables */
+
+        adios2::Variable<double> vBx =
+            io.InquireVariable<double>("/data/fields/B/x");
+        adios2::Variable<double> vBy =
+            io.InquireVariable<double>("/data/fields/B/y");
+        adios2::Variable<double> vBz =
+            io.InquireVariable<double>("/data/fields/B/z");
+        adios2::Variable<double> vEx =
+            io.InquireVariable<double>("/data/fields/E/x");
+        adios2::Variable<double> vEy =
+            io.InquireVariable<double>("/data/fields/E/y");
+        adios2::Variable<double> vEz =
+            io.InquireVariable<double>("/data/fields/E/z");
+        adios2::Variable<double> vjx =
+            io.InquireVariable<double>("/data/fields/j/x");
+        adios2::Variable<double> vjy =
+            io.InquireVariable<double>("/data/fields/j/y");
+        adios2::Variable<double> vjz =
+            io.InquireVariable<double>("/data/fields/j/z");
+        adios2::Variable<double> vrho =
+            io.InquireVariable<double>("/data/fields/rho");
+
+        vBx.SetSelection(sel3D);
+        vBy.SetSelection(sel3D);
+        vBz.SetSelection(sel3D);
+        vEx.SetSelection(sel3D);
+        vEy.SetSelection(sel3D);
+        vEz.SetSelection(sel3D);
+        vjx.SetSelection(sel3D);
+        vjy.SetSelection(sel3D);
+        vjz.SetSelection(sel3D);
+        vrho.SetSelection(sel3D);
+
+        /* Use adios2::Span to get memory from output buffer */
+        adios2::Variable<double>::Span sBx = dump.Put(vBx);
+        adios2::Variable<double>::Span sBy = dump.Put(vBy);
+        adios2::Variable<double>::Span sBz = dump.Put(vBz);
+        adios2::Variable<double>::Span sEx = dump.Put(vEx);
+        adios2::Variable<double>::Span sEy = dump.Put(vEy);
+        adios2::Variable<double>::Span sEz = dump.Put(vEz);
+        adios2::Variable<double>::Span sjx = dump.Put(vjx);
+        adios2::Variable<double>::Span sjy = dump.Put(vjy);
+        adios2::Variable<double>::Span sjz = dump.Put(vjz);
+        adios2::Variable<double>::Span srho = dump.Put(vrho);
+
+        /* Populate spans by reading in data */
+        engine.Get(vBx, sBx.data(), adios2::Mode::Sync);
+        engine.Get(vBy, sBy.data(), adios2::Mode::Sync);
+        engine.Get(vBz, sBz.data(), adios2::Mode::Sync);
+        engine.Get(vEx, sEx.data(), adios2::Mode::Sync);
+        engine.Get(vEy, sEy.data(), adios2::Mode::Sync);
+        engine.Get(vEz, sEz.data(), adios2::Mode::Sync);
+        engine.Get(vjx, sjx.data(), adios2::Mode::Sync);
+        engine.Get(vjy, sjy.data(), adios2::Mode::Sync);
+        engine.Get(vjz, sjz.data(), adios2::Mode::Sync);
+        engine.Get(vrho, srho.data(), adios2::Mode::Sync);
+
+        /* 1D variables */
+
+        adios2::Variable<double> veid =
+            io.InquireVariable<double>("/data/800/particles/electrons/id");
+        adios2::Variable<double> vemx = io.InquireVariable<double>(
+            "/data/800/particles/electrons/momentum/x");
+        adios2::Variable<double> vemy = io.InquireVariable<double>(
+            "/data/800/particles/electrons/momentum/y");
+        adios2::Variable<double> vemz = io.InquireVariable<double>(
+            "/data/800/particles/electrons/momentum/z");
+        adios2::Variable<double> vepx = io.InquireVariable<double>(
+            "/data/800/particles/electrons/position/x");
+        adios2::Variable<double> vepy = io.InquireVariable<double>(
+            "/data/800/particles/electrons/position/y");
+        adios2::Variable<double> vepz = io.InquireVariable<double>(
+            "/data/800/particles/electrons/position/z");
+        adios2::Variable<double> vew = io.InquireVariable<double>(
+            "/data/800/particles/electrons/weighting");
+
+        veid.SetSelection(sel1D);
+        vemx.SetSelection(sel1D);
+        vemy.SetSelection(sel1D);
+        vemz.SetSelection(sel1D);
+        vepx.SetSelection(sel1D);
+        vepy.SetSelection(sel1D);
+        vepz.SetSelection(sel1D);
+        vew.SetSelection(sel1D);
+
+        /* Use adios2::Span to get memory from output buffer */
+        adios2::Variable<double>::Span seid = dump.Put(veid);
+        adios2::Variable<double>::Span semx = dump.Put(vemx);
+        adios2::Variable<double>::Span semy = dump.Put(vemy);
+        adios2::Variable<double>::Span semz = dump.Put(vemz);
+        adios2::Variable<double>::Span sepx = dump.Put(vepx);
+        adios2::Variable<double>::Span sepy = dump.Put(vepy);
+        adios2::Variable<double>::Span sepz = dump.Put(vepz);
+        adios2::Variable<double>::Span sew = dump.Put(vew);
+
+        /* Populate spans by reading in data */
+        engine.Get(veid, seid.data(), adios2::Mode::Sync);
+        engine.Get(vemx, semx.data(), adios2::Mode::Sync);
+        engine.Get(vemy, semy.data(), adios2::Mode::Sync);
+        engine.Get(vemz, semz.data(), adios2::Mode::Sync);
+        engine.Get(vepx, sepx.data(), adios2::Mode::Sync);
+        engine.Get(vepy, sepy.data(), adios2::Mode::Sync);
+        engine.Get(vepz, sepz.data(), adios2::Mode::Sync);
+        engine.Get(vew, sew.data(), adios2::Mode::Sync);
+
+        if (step == 1 && settings.adiosLockSelections)
+        {
+            engine.LockReaderSelections();
+            dump.LockWriterDefinitions();
+        }
+
+        engine.EndStep();
+        te = std::chrono::steady_clock::now();
+        t.input += te - ts;
+        ts = te;
+
+        /* Dump data to disk */
+        dump.EndStep();
+        te = std::chrono::steady_clock::now();
+        t.output += te - ts;
+    }
+    ts = std::chrono::steady_clock::now();
+    engine.Close();
+    te = std::chrono::steady_clock::now();
+    t.input += te - ts;
+    te = ts;
+
+    dump.Close();
+    te = std::chrono::steady_clock::now();
+    t.output += te - ts;
+
+    t.total = std::chrono::steady_clock::now() - totalstart;
+    return t;
+}
+
+Timers IO_ADIOS::ReaderNoDump()
+{
     Timers t;
     TimePoint ts, te;
     TimePoint totalstart = std::chrono::steady_clock::now();
@@ -230,15 +429,17 @@ Timers IO_ADIOS::Reader()
     adios2::ADIOS adios(settings.adios_config, comm);
     adios2::IO io = adios.DeclareIO("WarpX");
     io.SetParameter("InitialBufferSize", std::to_string(outputSize + 4194304));
+    // if (!rank)
+    {
+        std::cout << "Reader rank " << rank
+                  << " allocated small blocks size = " << nTotalAllocatedSize
+                  << " output size = " << outputSize << std::endl;
+    }
 
     adios2::Engine engine = io.Open(settings.streamName, adios2::Mode::Read);
 
     adios2::Engine dump;
-    if (settings.readerDump)
-    {
-        io.SetEngine("FileStream");
-        dump = io.Open("dump_adios.bp", adios2::Mode::Write);
-    }
+    io.SetEngine("FileStream");
 
     for (int step = 1; step <= settings.steps; ++step)
     {
@@ -283,16 +484,17 @@ Timers IO_ADIOS::Reader()
         vjy.SetSelection(sel3D);
         vjz.SetSelection(sel3D);
         vrho.SetSelection(sel3D);
-        engine.Get(vBx, Bx.data());
-        engine.Get(vBy, By.data());
-        engine.Get(vBz, Bz.data());
-        engine.Get(vEx, Ex.data());
-        engine.Get(vEy, Ey.data());
-        engine.Get(vEz, Ez.data());
-        engine.Get(vjx, jx.data());
-        engine.Get(vjy, jy.data());
-        engine.Get(vjz, jz.data());
-        engine.Get(vrho, rho.data());
+
+        engine.Get(vBx, Bx.data(), adios2::Mode::Sync);
+        engine.Get(vBy, By.data(), adios2::Mode::Sync);
+        engine.Get(vBz, Bz.data(), adios2::Mode::Sync);
+        engine.Get(vEx, Ex.data(), adios2::Mode::Sync);
+        engine.Get(vEy, Ey.data(), adios2::Mode::Sync);
+        engine.Get(vEz, Ez.data(), adios2::Mode::Sync);
+        engine.Get(vjx, jx.data(), adios2::Mode::Sync);
+        engine.Get(vjy, jy.data(), adios2::Mode::Sync);
+        engine.Get(vjz, jz.data(), adios2::Mode::Sync);
+        engine.Get(vrho, rho.data(), adios2::Mode::Sync);
 
         /* 1D variables */
 
@@ -321,14 +523,15 @@ Timers IO_ADIOS::Reader()
         vepy.SetSelection(sel1D);
         vepz.SetSelection(sel1D);
         vew.SetSelection(sel1D);
-        engine.Get(veid, eid.data());
-        engine.Get(vemx, emx.data());
-        engine.Get(vemy, emy.data());
-        engine.Get(vemz, emz.data());
-        engine.Get(vepx, epx.data());
-        engine.Get(vepy, epy.data());
-        engine.Get(vepz, epz.data());
-        engine.Get(vew, ew.data());
+
+        engine.Get(veid, eid.data(), adios2::Mode::Sync);
+        engine.Get(vemx, emx.data(), adios2::Mode::Sync);
+        engine.Get(vemy, emy.data(), adios2::Mode::Sync);
+        engine.Get(vemz, emz.data(), adios2::Mode::Sync);
+        engine.Get(vepx, epx.data(), adios2::Mode::Sync);
+        engine.Get(vepy, epy.data(), adios2::Mode::Sync);
+        engine.Get(vepz, epz.data(), adios2::Mode::Sync);
+        engine.Get(vew, ew.data(), adios2::Mode::Sync);
 
         if (step == 1 && settings.adiosLockSelections)
         {
@@ -336,38 +539,9 @@ Timers IO_ADIOS::Reader()
         }
 
         engine.EndStep();
-
         te = std::chrono::steady_clock::now();
         t.input += te - ts;
         ts = te;
-
-        if (settings.readerDump)
-        {
-            /* Dump data to disk */
-            dump.BeginStep();
-            dump.Put(vBx, Bx.data());
-            dump.Put(vBy, By.data());
-            dump.Put(vBz, Bz.data());
-            dump.Put(vEx, Ex.data());
-            dump.Put(vEy, Ey.data());
-            dump.Put(vEz, Ez.data());
-            dump.Put(vjx, jx.data());
-            dump.Put(vjy, jy.data());
-            dump.Put(vjz, jz.data());
-            dump.Put(vrho, rho.data());
-            dump.Put(veid, eid.data());
-            dump.Put(vemx, emx.data());
-            dump.Put(vemy, emy.data());
-            dump.Put(vemz, emz.data());
-            dump.Put(vepx, epx.data());
-            dump.Put(vepy, epy.data());
-            dump.Put(vepz, epz.data());
-            dump.Put(vew, ew.data());
-            dump.EndStep();
-        }
-
-        te = std::chrono::steady_clock::now();
-        t.output += te - ts;
     }
     ts = std::chrono::steady_clock::now();
     engine.Close();
@@ -375,12 +549,6 @@ Timers IO_ADIOS::Reader()
     t.input += te - ts;
     te = ts;
 
-    if (settings.readerDump)
-    {
-        dump.Close();
-        te = std::chrono::steady_clock::now();
-        t.output += te - ts;
-    }
     t.total = std::chrono::steady_clock::now() - totalstart;
     return t;
 }

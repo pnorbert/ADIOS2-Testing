@@ -18,13 +18,16 @@
 #include "adios2.h"
 
 IO::IO(const WarpxSettings &settings, const Decomp &decomp, MPI_Comm comm,
-       const bool isWriter)
+       const bool isWriter, const bool allocateBlocks)
 : settings(settings), decomp(decomp), comm(comm), isWriter(isWriter)
 {
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
     CalculateMyBlocks();
-    AllocateBlocks();
+    if (allocateBlocks)
+    {
+        AllocateBlocks();
+    }
 }
 
 void IO::CalculateMyBlocks()

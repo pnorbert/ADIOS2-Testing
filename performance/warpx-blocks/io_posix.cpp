@@ -18,7 +18,7 @@
 
 IO_POSIX::IO_POSIX(const WarpxSettings &settings, const Decomp &decomp,
                    MPI_Comm comm, const bool isWriter)
-: IO(settings, decomp, comm, isWriter)
+: IO(settings, decomp, comm, isWriter, true)
 {
     if (isWriter)
     {

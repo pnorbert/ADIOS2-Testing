@@ -16,6 +16,10 @@ public:
 
     Timers Writer();
     Timers Reader();
+
+private:
+    Timers ReaderWithSpan();
+    Timers ReaderNoDump();
 };
 
 #endif /* IO_ADIOS_H_ */
