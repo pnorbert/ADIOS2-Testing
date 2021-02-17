@@ -16,10 +16,10 @@ CXX_MPI_LDFLAGS:=`${ADIOS2_DIR}/bin/adios2-config --cxx-libs -m`
 all: warpx-writer warpx-reader
 default: all
 
-warpx-writer: decomp.o warpxsettings.o timers.o io.o io_adios.o io_mpi.o warpx-writer.o
+warpx-writer: decomp.o warpxsettings.o timers.o io.o io_adios.o io_mpi.o io_posix.o warpx-writer.o
 	${MPICXX} -o $@ ${CXXFLAGS} ${CXX_MPI_FLAGS} $+ ${CXX_MPI_LDFLAGS}
 
-warpx-reader: decomp.o warpxsettings.o timers.o io.o io_adios.o io_mpi.o warpx-reader.o
+warpx-reader: decomp.o warpxsettings.o timers.o io.o io_adios.o io_mpi.o io_posix.o warpx-reader.o
 	${MPICXX} -o $@ ${CXXFLAGS} ${CXX_MPI_FLAGS} $+ ${CXX_MPI_LDFLAGS}
 
 %.o: %.cpp
@@ -32,3 +32,4 @@ clean: clean-data
 
 clean-data:
 	rm -rf *.bp *.sst *.ssc
+	rm -rf warpx.[0-9]* warpx.idx

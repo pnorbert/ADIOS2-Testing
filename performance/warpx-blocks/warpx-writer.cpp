@@ -18,6 +18,7 @@
 #include "decomp.h"
 #include "io_adios.h"
 #include "io_mpi.h"
+#include "io_posix.h"
 #include "timers.h"
 #include "warpxsettings.h"
 
@@ -87,14 +88,19 @@ int main(int argc, char *argv[])
     }
 
     Timers t;
-    if (settings.cplMode == CouplingMode::ADIOS)
+    if (settings.ioMode == IOMode::ADIOS)
     {
         IO_ADIOS io(settings, decomp, app_comm, true);
         t = io.Writer();
     }
-    else // (settings.cplMode == CouplingMode::MPI)
+    else if (settings.ioMode == IOMode::MPI)
     {
         IO_MPI io(settings, decomp, app_comm, true);
+        t = io.Writer();
+    }
+    else // (settings.ioMode == IOMode::POSIX)
+    {
+        IO_POSIX io(settings, decomp, app_comm, true);
         t = io.Writer();
     }
 

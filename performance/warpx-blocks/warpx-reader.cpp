@@ -19,6 +19,7 @@
 #include "decomp.h"
 #include "io_adios.h"
 #include "io_mpi.h"
+#include "io_posix.h"
 #include "warpxsettings.h"
 
 int rank, nproc;
@@ -79,14 +80,19 @@ int main(int argc, char *argv[])
     }
 
     Timers t;
-    if (settings.cplMode == CouplingMode::ADIOS)
+    if (settings.ioMode == IOMode::ADIOS)
     {
         IO_ADIOS io(settings, decomp, app_comm, false);
         t = io.Reader();
     }
-    else // (settings.cplMode == CouplingMode::MPI)
+    else if (settings.ioMode == IOMode::MPI)
     {
         IO_MPI io(settings, decomp, app_comm, false);
+        t = io.Reader();
+    }
+    else // (settings.ioMode == CouplingMode::POSIX)
+    {
+        IO_POSIX io(settings, decomp, app_comm, false);
         t = io.Reader();
     }
 
@@ -95,7 +101,7 @@ int main(int argc, char *argv[])
     {
         // struct Timers ta = AvgTimes(tv);
         size_t maxidx = MaxTimerIdx(tv);
-        if (settings.cplMode == CouplingMode::ADIOS)
+        if (settings.ioMode == IOMode::ADIOS)
         {
             std::cout << "Reader timing: Max on process " << maxidx
                       << " Total time = " << tv[maxidx].total.count()
@@ -104,7 +110,7 @@ int main(int argc, char *argv[])
                       << " output = " << tv[maxidx].output.count() << " seconds"
                       << std::endl;
         }
-        else // (settings.cplMode == CouplingMode::MPI)
+        else // (settings.ioMode == IOMode::MPI)
         {
             std::cout << "Reader timing: Max on process " << maxidx
                       << " Total time = " << tv[maxidx].total.count()

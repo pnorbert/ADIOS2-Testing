@@ -7,18 +7,18 @@
 
 void to_json(nlohmann::json &j, const WarpxSettings &s)
 {
-    std::string cpl;
-    if (s.cplMode == CouplingMode::MPI)
+    std::string mode;
+    if (s.ioMode == IOMode::MPI)
     {
-        cpl = "MPI";
+        mode = "MPI";
     }
     else
     {
-        cpl = "ADIOS";
+        mode = "ADIOS";
     }
 
     double cpt = s.computeTime.count();
-    j = nlohmann::json{{"couplingMode", cpl},
+    j = nlohmann::json{{"ioMode", mode},
                        {"steps", s.steps},
                        {"computeTime", cpt},
                        {"input1D", s.inputfile1D},
@@ -27,6 +27,7 @@ void to_json(nlohmann::json &j, const WarpxSettings &s)
                        {"adios_config", s.adios_config},
                        {"nWriters", s.nWriters},
                        {"readDecomp3D", s.readDecomp3D},
+                       {"posixAggregatorRatio", s.posixAggregatorRatio},
                        {"readerDump", s.readerDump},
                        {"adiosLockSelections", s.adiosLockSelections},
                        {"verbose", s.verbose}};
@@ -34,9 +35,9 @@ void to_json(nlohmann::json &j, const WarpxSettings &s)
 
 void from_json(const nlohmann::json &j, WarpxSettings &s)
 {
-    std::string cpl;
+    std::string mode;
     double cpt;
-    j.at("couplingMode").get_to(cpl);
+    j.at("ioMode").get_to(mode);
     j.at("steps").get_to(s.steps);
     j.at("computeTime").get_to(cpt);
     j.at("input1D").get_to(s.inputfile1D);
@@ -47,25 +48,38 @@ void from_json(const nlohmann::json &j, WarpxSettings &s)
     j.at("readDecomp3D").get_to(s.readDecomp3D);
     j.at("readerDump").get_to(s.readerDump);
     j.at("adiosLockSelections").get_to(s.adiosLockSelections);
+    j.at("posixAggregatorRatio").get_to(s.posixAggregatorRatio);
     j.at("verbose").get_to(s.verbose);
 
     s.computeTime = Seconds(cpt);
 
-    std::string modestr = cpl;
+    std::string modestr = mode;
     std::transform(modestr.begin(), modestr.end(), modestr.begin(), ::tolower);
     if (modestr == "mpi")
     {
-        s.cplMode = CouplingMode::MPI;
+        s.ioMode = IOMode::MPI;
     }
     else if (modestr == "adios")
     {
-        s.cplMode = CouplingMode::ADIOS;
+        s.ioMode = IOMode::ADIOS;
+    }
+    else if (modestr == "posix")
+    {
+        s.ioMode = IOMode::POSIX;
     }
     else
     {
-        std::cout << "Invalid couplingMode argument:" << cpl
-                  << ". Reverting to MPI mode..." << std::endl;
-        s.cplMode = CouplingMode::MPI;
+        std::cout << "Invalid ioMode argument:" << mode
+                  << ". Reverting to POSIX mode..." << std::endl;
+        s.ioMode = IOMode::POSIX;
+    }
+
+    if (s.posixAggregatorRatio == 0)
+    {
+        std::cout << "Invalid 'posixAggregatorRatio' argument:"
+                  << s.posixAggregatorRatio << ". Reverting to value 1 ..."
+                  << std::endl;
+        s.posixAggregatorRatio = 1;
     }
 
     s.nReaders = s.readDecomp3D[0] * s.readDecomp3D[1] * s.readDecomp3D[2];

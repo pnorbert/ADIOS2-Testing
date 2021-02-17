@@ -6,15 +6,16 @@
 
 #include "timers.h"
 
-enum class CouplingMode
+enum class IOMode
 {
     MPI,
-    ADIOS
+    ADIOS,
+    POSIX
 };
 
 struct WarpxSettings
 {
-    CouplingMode cplMode;
+    IOMode ioMode;
     int steps;
     Seconds computeTime;
     std::string inputfile1D;
@@ -23,6 +24,7 @@ struct WarpxSettings
     std::string adios_config;
     size_t nWriters;
     std::vector<size_t> readDecomp3D;
+    size_t posixAggregatorRatio;
     bool readerDump;
     bool adiosLockSelections;
     size_t verbose; /* 0-2 */

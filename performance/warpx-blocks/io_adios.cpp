@@ -22,8 +22,6 @@ IO_ADIOS::IO_ADIOS(const WarpxSettings &settings, const Decomp &decomp,
                    MPI_Comm comm, const bool isWriter)
 : IO(settings, decomp, comm, isWriter)
 {
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &nproc);
 }
 
 Timers IO_ADIOS::Writer()
@@ -34,6 +32,8 @@ Timers IO_ADIOS::Writer()
 
     adios2::ADIOS adios(settings.adios_config, comm);
     adios2::IO io = adios.DeclareIO("WarpX");
+    // io.SetParameter("InitialBufferSize",
+    //                std::to_string(1.1 * nTotalAllocatedSize));
 
     adios2::Engine engine = io.Open(settings.streamName, adios2::Mode::Write);
 
@@ -218,6 +218,9 @@ Timers IO_ADIOS::Reader()
         emz(d.count1D), epx(d.count1D), epy(d.count1D), epz(d.count1D),
         ew(d.count1D);
 
+    size_t outputSize =
+        10 * d.nElems3D * sizeof(double) + 8 * d.count1D * sizeof(double);
+
     adios2::Box<adios2::Dims> sel3D = {
         {d.start3D[0], d.start3D[1], d.start3D[2]},
         {d.count3D[0], d.count3D[1], d.count3D[2]}};
@@ -226,6 +229,7 @@ Timers IO_ADIOS::Reader()
 
     adios2::ADIOS adios(settings.adios_config, comm);
     adios2::IO io = adios.DeclareIO("WarpX");
+    io.SetParameter("InitialBufferSize", std::to_string(outputSize + 4194304));
 
     adios2::Engine engine = io.Open(settings.streamName, adios2::Mode::Read);
 

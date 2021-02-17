@@ -22,13 +22,6 @@ private:
     std::vector<int> readerWorldRanks;
     std::vector<int> writerWorldRanks;
     void ExchangeWorldRanks();
-
-    /*
-        Reader only functions
-    */
-    void Copy3D(std::vector<double> &, const struct ReaderDecomp &,
-                const std::vector<double> &, const struct Block3D &,
-                const int blockid);
 };
 
 #endif /* IO_MPI_H_ */

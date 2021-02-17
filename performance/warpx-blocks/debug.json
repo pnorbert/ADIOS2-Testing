@@ -1,14 +1,15 @@
 {
     "input1D": "input/decomp_debug_64blocks_1D.in",
     "input3D": "input/decomp_debug_64blocks_3D.in",
-    "couplingMode": "ADIOS",
-    "steps": 5, 
+    "ioMode": "ADIOS",
+    "steps": 1, 
     "computeTime": 1.5,
     "streamName": "warpx.bp",
     "adios_config": "adios2.xml",
-    "nWriters": 6,
-    "readDecomp3D": [ 2, 2, 2],
-    "readerDump": false,
+    "nWriters": 1,
+    "readDecomp3D": [ 2, 1, 1],
+    "posixAggregatorRatio": 1,
+    "readerDump": true,
     "adiosLockSelections": true,
-    "verbose": 0
+    "verbose": 2
 }
